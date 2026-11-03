@@ -1,0 +1,78 @@
+services:
+  # ==========================================
+  # 1. MÔI TRƯỜNG CHÍNH (PRIMARY ENVIRONMENT)
+  # ==========================================
+  primary-db:
+    image: mysql:8.0
+    container_name: primary-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: shoponline
+    ports:
+      - "3308:3306"
+    volumes:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/init.sql
+      - primary_db_data:/var/lib/mysql
+
+  primary-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: primary-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=primary-db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=shoponline
+    depends_on:
+      - primary-db
+    volumes:
+      - ./frontend:/app/frontend
+      - ./backend:/app/backend
+
+  # ==========================================
+  # 2. MÔI TRƯỜNG DỰ PHÒNG (STANDBY ENVIRONMENT)
+  # ==========================================
+  standby-db:
+    image: mysql:8.0
+    container_name: standby-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: shoponline
+    ports:
+      - "3309:3306"
+    volumes:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/init.sql
+      - standby_db_data:/var/lib/mysql
+
+  standby-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: standby-web
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=standby-db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=shoponline
+    depends_on:
+      - standby-db
+    volumes:
+      - ./frontend:/app/frontend
+      - ./backend:/app/backend
+
+volumes:
+  primary_db_data:
+  standby_db_data:

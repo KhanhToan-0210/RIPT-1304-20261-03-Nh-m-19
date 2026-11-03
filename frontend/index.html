@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LNT Store - Cửa Hàng Máy Tính & Thiết Bị HP</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+  <!-- Header / Navigation -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="logo">
+        <i class="fa-solid fa-laptop-code"></i> LNT Store
+      </a>
+      <nav class="nav-links">
+        <a href="index.html" class="active"><i class="fa-solid fa-house"></i> Trang chủ</a>
+        <a href="cart.html"><i class="fa-solid fa-cart-shopping"></i> Giỏ hàng (<span id="cart-count">0</span>)</a>
+        <a href="admin.html" class="admin-btn"><i class="fa-solid fa-gear"></i> Quản trị</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Banner -->
+  <section class="hero-banner">
+    <div class="container banner-content">
+      <h2>Công Nghệ Đột Phá - Trải Nghiệm Đỉnh Cao</h2>
+      <p>Cung cấp laptop, máy tính để bàn & phụ kiện HP chính hãng</p>
+    </div>
+  </section>
+
+  <!-- Main Content: Product List -->
+  <main class="container main-content">
+    <div class="section-title">
+      <h3><i class="fa-solid fa-layer-group"></i> Danh Sách Sản Phẩm</h3>
+    </div>
+    <div id="product-list" class="product-grid">
+      <div class="loading">Đang tải sản phẩm...</div>
+    </div>
+  </main>
+
+  <!-- Modal Chi Tiết Sản Phẩm -->
+  <div id="product-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container footer-content">
+      <p>&copy; 2026 LNT Store - Đồ án Nhập môn Công nghệ nền tảng.</p>
+    </div>
+  </footer>
+
+  <script src="js/cart.js"></script>
+  <script src="js/main.js"></script>
+</body>
+
+</html>

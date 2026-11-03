@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Giỏ Hàng & Đặt Hàng - LNT Store</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" class="logo">
+        <i class="fa-solid fa-laptop-code"></i> LNT Store
+      </a>
+      <nav class="nav-links">
+        <a href="index.html"><i class="fa-solid fa-house"></i> Trang chủ</a>
+        <a href="cart.html" class="active"><i class="fa-solid fa-cart-shopping"></i> Giỏ hàng (<span
+            id="cart-count">0</span>)</a>
+        <a href="admin.html" class="admin-btn"><i class="fa-solid fa-gear"></i> Quản trị</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <div class="section-title">
+      <h3><i class="fa-solid fa-cart-shopping"></i> Giỏ Hàng Của Bạn</h3>
+    </div>
+
+    <div class="cart-layout">
+      <!-- Bảng giỏ hàng -->
+      <div class="cart-items-wrapper">
+        <table class="cart-table">
+          <thead>
+            <tr>
+              <th>Hình ảnh</th>
+              <th>Tên sản phẩm</th>
+              <th>Giá</th>
+              <th>Số lượng</th>
+              <th>Thành tiền</th>
+              <th>Xóa</th>
+            </tr>
+          </thead>
+          <tbody id="cart-table-body">
+            <!-- Render via JS -->
+          </tbody>
+        </table>
+        <div id="cart-empty-msg" class="empty-msg" style="display: none;">
+          <p>Giỏ hàng đang trống.</p>
+          <a href="index.html" class="btn btn-primary" style="margin-top: 10px; display: inline-block;">Tiếp tục mua
+            hàng</a>
+        </div>
+      </div>
+
+      <!-- Form đặt hàng -->
+      <div class="checkout-wrapper">
+        <div class="checkout-card">
+          <h4><i class="fa-solid fa-receipt"></i> Thông Tin Đặt Hàng</h4>
+          <hr>
+          <div class="order-summary-row">
+            <span>Tổng cộng:</span>
+            <strong id="cart-total-price" class="text-danger">0 đ</strong>
+          </div>
+          <form id="order-form" onsubmit="handlePlaceOrder(event)">
+            <div class="form-group">
+              <label for="cust-name">Họ và tên *</label>
+              <input type="text" id="cust-name" required placeholder="Ví dụ: Nguyễn Văn A">
+            </div>
+            <div class="form-group">
+              <label for="cust-phone">Số điện thoại *</label>
+              <input type="tel" id="cust-phone" required placeholder="Ví dụ: 0912345678">
+            </div>
+            <div class="form-group">
+              <label for="cust-address">Địa chỉ nhận hàng *</label>
+              <textarea id="cust-address" required rows="3"
+                placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."></textarea>
+            </div>
+            <button type="submit" id="btn-submit-order" class="btn btn-success btn-block">
+              <i class="fa-solid fa-check"></i> Xác Nhận Đặt Hàng
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-content">
+      <p>&copy; 2026 LNT Store - Đồ án Nhập môn Công nghệ nền tảng.</p>
+    </div>
+  </footer>
+
+  <script src="js/cart.js"></script>
+</body>
+
+</html>
