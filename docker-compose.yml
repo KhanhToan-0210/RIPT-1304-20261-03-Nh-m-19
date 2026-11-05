@@ -22,7 +22,7 @@ services:
     container_name: primary-web
     restart: always
     ports:
-      - "3000:3000"
+      - "8000:3000"
     environment:
       - PORT=3000
       - DB_HOST=primary-db
@@ -34,7 +34,8 @@ services:
       - primary-db
     volumes:
       - ./frontend:/app/frontend
-      - ./backend:/app/backend
+      - ./backend/src:/app/backend/src
+      - ./backend/server.js:/app/backend/server.js
 
   # ==========================================
   # 2. MÔI TRƯỜNG DỰ PHÒNG (STANDBY ENVIRONMENT)
@@ -59,7 +60,7 @@ services:
     container_name: standby-web
     restart: always
     ports:
-      - "3001:3000"
+      - "8001:3000"
     environment:
       - PORT=3000
       - DB_HOST=standby-db
@@ -71,7 +72,8 @@ services:
       - standby-db
     volumes:
       - ./frontend:/app/frontend
-      - ./backend:/app/backend
+      - ./backend/src:/app/backend/src
+      - ./backend/server.js:/app/backend/server.js
 
 volumes:
   primary_db_data:

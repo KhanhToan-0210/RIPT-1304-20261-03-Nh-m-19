@@ -18,7 +18,7 @@ async function loadProducts() {
         <div class="product-info">
           <h4 class="product-name" onclick="showProductDetail(${p.id})">${p.name}</h4>
           <div class="product-price">${formatCurrency(p.price)}</div>
-          <div class="product-stock"><i class="fa-solid fa-boxes-stacked"></i> Còn lại: <strong>${p.stock}</strong> máy</div>
+          <div class="product-stock"><i class="fa-solid fa-boxes-stacked"></i> Còn lại: <strong>${p.stock}</strong></div>
           <div class="card-actions">
             <button class="btn btn-outline" style="flex: 1;" onclick="showProductDetail(${p.id})">
               <i class="fa-solid fa-circle-info"></i> Xem
