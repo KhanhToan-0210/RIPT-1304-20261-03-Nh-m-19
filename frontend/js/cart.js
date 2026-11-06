@@ -150,7 +150,7 @@ async function handlePlaceOrder(e) {
 
     const data = await res.json();
     if (res.ok) {
-      alert(`🎉 Đặt hàng thành công!\nMã đơn: ${data.order.id}\nCảm ơn bạn đã mua sắm tại HP Store!`);
+      alert(`🎉 Đặt hàng thành công!\nMã đơn: ${data.order.id}\nCảm ơn bạn đã mua sắm tại LNT Store!`);
       localStorage.removeItem(CART_KEY);
       window.location.href = 'index.html';
     } else {

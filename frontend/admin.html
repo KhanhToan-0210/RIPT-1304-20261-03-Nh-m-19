@@ -1,130 +1,317 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trang Quản Trị - HP Store</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="description"
+          content="Trang quản trị sản phẩm và đơn hàng LNT Store">
+
+    <title>Quản Trị Hệ Thống | LNT Store</title>
+
+    <!-- CSS chính -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
-  <header class="navbar">
-    <div class="container nav-container">
-      <a href="index.html" class="logo">
-        <i class="fa-solid fa-shield-halved"></i> LNT Store - Quản Trị Hệ Thống
-      </a>
-      <nav class="nav-links">
-        <a href="index.html"><i class="fa-solid fa-house"></i> Về Cửa Hàng</a>
-        <a href="admin.html" class="active"><i class="fa-solid fa-gauge"></i> Bảng Điều Khiển</a>
-      </nav>
-    </div>
-  </header>
 
-  <main class="container main-content">
-    <div class="admin-tabs">
-      <button class="tab-btn active" onclick="switchTab('products')">
-        <i class="fa-solid fa-box"></i> Quản Lý Sản Phẩm (Thêm / Sửa / Xóa)
-      </button>
-      <button class="tab-btn" onclick="switchTab('orders')">
-        <i class="fa-solid fa-list-check"></i> Quản Lý Đơn Hàng
-      </button>
-    </div>
+    <!-- ===================================
+         HEADER - THANH ĐIỀU HƯỚNG
+    ==================================== -->
+    <header class="navbar">
+        <div class="container nav-container">
 
-    <!-- Tab Quản lý sản phẩm -->
-    <section id="tab-products" class="tab-pane active">
-      <div class="admin-grid">
-        <!-- Form thêm / sửa sản phẩm -->
-        <div class="card form-card">
-          <h4 id="form-title"><i class="fa-solid fa-plus-circle"></i> Thêm Sản Phẩm Mới</h4>
-          <form id="product-form" onsubmit="handleProductSubmit(event)">
-            <input type="hidden" id="p-id">
-            <div class="form-group">
-              <label for="p-name">Tên sản phẩm *</label>
-              <input type="text" id="p-name" required placeholder="Nhập tên sản phẩm">
-            </div>
-            <div class="form-group">
-              <label for="p-price">Giá bán (VNĐ) *</label>
-              <input type="number" id="p-price" required placeholder="Ví dụ: 15000000">
-            </div>
-            <div class="form-group">
-              <label for="p-stock">Số lượng tồn kho *</label>
-              <input type="number" id="p-stock" required placeholder="Ví dụ: 10">
-            </div>
-            <div class="form-group">
-              <label for="p-image">Link hình ảnh (URL)</label>
-              <input type="url" id="p-image" placeholder="https://...">
-            </div>
-            <div class="form-group">
-              <label for="p-desc">Mô tả sản phẩm</label>
-              <textarea id="p-desc" rows="3" placeholder="Thông số kỹ thuật, mô tả..."></textarea>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="btn-save-product">Lưu Sản Phẩm</button>
-              <button type="button" class="btn btn-secondary" onclick="resetProductForm()" id="btn-cancel-edit"
-                style="display: none;">Hủy</button>
-            </div>
-          </form>
+            <a href="index.html" class="logo">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>LNT Store - Quản Trị Hệ Thống</span>
+            </a>
+
+            <nav class="nav-links"
+                 aria-label="Điều hướng quản trị">
+
+                <a href="index.html">
+                    <i class="fa-solid fa-house"></i>
+                    Về Cửa Hàng
+                </a>
+
+                <a href="admin.html"
+                   class="active"
+                   aria-current="page">
+                    <i class="fa-solid fa-gauge"></i>
+                    Bảng Điều Khiển
+                </a>
+
+            </nav>
+        </div>
+    </header>
+
+    <!-- ===================================
+         NỘI DUNG TRANG QUẢN TRỊ
+    ==================================== -->
+    <main class="container main-content">
+
+        <!-- THANH TAB -->
+        <div class="admin-tabs" role="tablist"
+             aria-label="Các mục quản trị">
+
+            <button
+                type="button"
+                class="tab-btn active"
+                onclick="switchTab('products')">
+
+                <i class="fa-solid fa-box"></i>
+                Quản Lý Sản Phẩm
+            </button>
+
+            <button
+                type="button"
+                class="tab-btn"
+                onclick="switchTab('orders')">
+
+                <i class="fa-solid fa-list-check"></i>
+                Quản Lý Đơn Hàng
+            </button>
+
         </div>
 
-        <!-- Bảng danh sách sản phẩm hiện tại -->
-        <div class="card table-card">
-          <h4>Danh Sách Sản Phẩm Trong Kho</h4>
-          <div class="table-responsive">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th>Ảnh</th>
-                  <th>Tên</th>
-                  <th>Giá</th>
-                  <th>Kho</th>
-                  <th>Thao tác</th>
-                </tr>
-              </thead>
-              <tbody id="admin-product-tbody">
-                <!-- Render via JS -->
-              </tbody>
-            </table>
-          </div>
+        <!-- ===================================
+             TAB 1: QUẢN LÝ SẢN PHẨM
+        ==================================== -->
+        <section
+            id="tab-products"
+            class="tab-pane active"
+            aria-label="Quản lý sản phẩm">
+
+            <div class="admin-grid">
+
+                <!-- FORM THÊM / SỬA SẢN PHẨM -->
+                <div class="card form-card">
+
+                    <h4 id="form-title">
+                        <i class="fa-solid fa-plus-circle"></i>
+                        Thêm Sản Phẩm Mới
+                    </h4>
+
+                    <form
+                        id="product-form"
+                        onsubmit="handleProductSubmit(event)">
+
+                        <!-- ID ẩn khi sửa -->
+                        <input
+                            type="hidden"
+                            id="p-id"
+                            name="id">
+
+                        <!-- TÊN SẢN PHẨM -->
+                        <div class="form-group">
+                            <label for="p-name">
+                                Tên sản phẩm *
+                            </label>
+
+                            <input
+                                type="text"
+                                id="p-name"
+                                name="name"
+                                maxlength="255"
+                                required
+                                placeholder="Ví dụ: Laptop HP Pavilion 15">
+                        </div>
+
+                        <!-- GIÁ SẢN PHẨM -->
+                        <div class="form-group">
+                            <label for="p-price">
+                                Giá bán (VNĐ) *
+                            </label>
+
+                            <input
+                                type="number"
+                                id="p-price"
+                                name="price"
+                                min="0"
+                                max="9999999999999.99"
+                                step="0.01"
+                                required
+                                placeholder="Ví dụ: 15000000">
+                        </div>
+
+                        <!-- TỒN KHO -->
+                        <div class="form-group">
+                            <label for="p-stock">
+                                Số lượng tồn kho *
+                            </label>
+
+                            <input
+                                type="number"
+                                id="p-stock"
+                                name="stock"
+                                min="0"
+                                max="2147483647"
+                                step="1"
+                                required
+                                placeholder="Ví dụ: 10">
+                        </div>
+
+                        <!-- HÌNH ẢNH -->
+                        <div class="form-group">
+                            <label for="p-image">
+                                Link hình ảnh (URL)
+                            </label>
+
+                            <input
+                                type="url"
+                                id="p-image"
+                                name="image"
+                                maxlength="500"
+                                placeholder="https://example.com/product.jpg">
+                        </div>
+
+                        <!-- MÔ TẢ -->
+                        <div class="form-group">
+                            <label for="p-desc">
+                                Mô tả sản phẩm
+                            </label>
+
+                            <textarea
+                                id="p-desc"
+                                name="description"
+                                rows="4"
+                                maxlength="10000"
+                                placeholder="Nhập thông số kỹ thuật và mô tả sản phẩm..."></textarea>
+                        </div>
+
+                        <!-- NÚT THAO TÁC -->
+                        <div class="form-actions">
+
+                            <button
+                                type="submit"
+                                id="btn-save-product"
+                                class="btn btn-primary">
+
+                                Lưu Sản Phẩm
+                            </button>
+
+                            <button
+                                type="button"
+                                id="btn-cancel-edit"
+                                class="btn btn-secondary"
+                                onclick="resetProductForm()"
+                                style="display:none;">
+
+                                Hủy
+                            </button>
+
+                        </div>
+                    </form>
+                </div>
+
+                <!-- DANH SÁCH SẢN PHẨM -->
+                <div class="card table-card">
+
+                    <h4>
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                        Danh Sách Sản Phẩm Trong Kho
+                    </h4>
+
+                    <div class="table-responsive">
+
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Ảnh</th>
+                                    <th scope="col">Tên sản phẩm</th>
+                                    <th scope="col">Giá bán</th>
+                                    <th scope="col">Tồn kho</th>
+                                    <th scope="col">Thao tác</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="admin-product-tbody">
+                                <tr>
+                                    <td colspan="5"
+                                        style="text-align:center;">
+                                        Đang tải danh sách sản phẩm...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===================================
+             TAB 2: QUẢN LÝ ĐƠN HÀNG
+        ==================================== -->
+        <section
+            id="tab-orders"
+            class="tab-pane"
+            aria-label="Quản lý đơn hàng">
+
+            <div class="card table-card">
+
+                <h4>
+                    <i class="fa-solid fa-truck-fast"></i>
+                    Danh Sách Đơn Hàng Đã Đặt
+                </h4>
+
+                <div class="table-responsive">
+
+                    <table class="admin-table">
+
+                        <thead>
+                            <tr>
+                                <th scope="col">Mã đơn</th>
+                                <th scope="col">Khách hàng</th>
+                                <th scope="col">Số điện thoại</th>
+                                <th scope="col">Địa chỉ</th>
+                                <th scope="col">Chi tiết mặt hàng</th>
+                                <th scope="col">Tổng tiền</th>
+                                <th scope="col">Thời gian đặt</th>
+                                <th scope="col">Trạng thái</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="admin-orders-tbody">
+                            <tr>
+                                <td colspan="8"
+                                    style="text-align:center;">
+                                    Đang tải danh sách đơn hàng...
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===================================
+         FOOTER
+    ==================================== -->
+    <footer>
+        <div class="container footer-content">
+
+            <p>
+                &copy; 2026 LNT Store.
+                Hệ Thống Quản Trị Bán Hàng.
+            </p>
+
         </div>
-      </div>
-    </section>
+    </footer>
 
-    <!-- Tab Quản lý đơn hàng -->
-    <section id="tab-orders" class="tab-pane">
-      <div class="card">
-        <h4><i class="fa-solid fa-truck-fast"></i> Danh Sách Đơn Hàng Đã Đặt</h4>
-        <div class="table-responsive">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Mã Đơn</th>
-                <th>Khách Hàng</th>
-                <th>SĐT</th>
-                <th>Địa Chỉ</th>
-                <th>Chi Tiết Mặt Hàng</th>
-                <th>Tổng Tiền</th>
-                <th>Thời Gian</th>
-                <th>Trạng Thái</th>
-              </tr>
-            </thead>
-            <tbody id="admin-orders-tbody">
-              <!-- Render via JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  </main>
+    <!-- JAVASCRIPT QUẢN TRỊ -->
+    <script src="js/admin.js"></script>
 
-  <footer>
-    <div class="container footer-content">
-      <p>&copy; 2026 LNT Store - Hệ Thống Quản Trị.</p>
-    </div>
-  </footer>
-
-  <script src="js/admin.js"></script>
 </body>
-
 </html>

@@ -3,6 +3,14 @@ const { randomUUID } = require('node:crypto');
 const pool = require('../config/db');
 
 // ============================================
+// CẤU HÌNH TRẠNG THÁI ĐƠN HÀNG
+// ============================================
+
+// Lưu trực tiếp trạng thái đúng tiếng Việt vào MySQL
+// Không phụ thuộc vào DEFAULT của cột status
+const DEFAULT_ORDER_STATUS = 'Chờ xác nhận';
+
+// ============================================
 // HÀM ĐỊNH DẠNG ĐƠN HÀNG CHO FRONTEND
 // ============================================
 
@@ -26,7 +34,10 @@ function formatOrder(order, items) {
     };
 }
 
-// Lấy danh sách sản phẩm trong một đơn hàng
+// ============================================
+// HÀM LẤY CHI TIẾT SẢN PHẨM TRONG ĐƠN HÀNG
+// ============================================
+
 async function getOrderItems(orderId) {
     const [items] = await pool.query(
         `SELECT product_id, product_name, price, quantity
@@ -41,7 +52,7 @@ async function getOrderItems(orderId) {
 
 // ============================================
 // API 1: POST /api/orders
-// TẠO ĐƠN HÀNG MỚI
+// CHỨC NĂNG TẠO ĐƠN HÀNG
 // ============================================
 
 exports.createOrder = async (req, res) => {
@@ -54,7 +65,10 @@ exports.createOrder = async (req, res) => {
     const address = body.customerAddress ?? body.customer_address;
     const items = body.items;
 
-    // BƯỚC 1: Kiểm tra thông tin khách hàng
+    // ========================================
+    // BƯỚC 1: KIỂM TRA THÔNG TIN KHÁCH HÀNG
+    // ========================================
+
     if (
         typeof name !== 'string' ||
         !name.trim() ||
@@ -72,7 +86,10 @@ exports.createOrder = async (req, res) => {
         });
     }
 
-    // BƯỚC 2: Kiểm tra giỏ hàng
+    // ========================================
+    // BƯỚC 2: KIỂM TRA GIỎ HÀNG
+    // ========================================
+
     if (
         !Array.isArray(items) ||
         items.length === 0 ||
@@ -87,7 +104,7 @@ exports.createOrder = async (req, res) => {
     const productIds = new Set();
     const cartItems = [];
 
-    // Kiểm tra từng sản phẩm trong giỏ
+    // Kiểm tra từng sản phẩm
     for (const item of items) {
 
         const id = item?.id ?? item?.product_id;
@@ -112,13 +129,17 @@ exports.createOrder = async (req, res) => {
         cartItems.push({ id, quantity });
     }
 
-    // Sắp xếp sản phẩm để khóa theo thứ tự
+    // Sắp xếp ID để khóa sản phẩm theo thứ tự
     cartItems.sort((a, b) => a.id - b.id);
 
     let connection;
 
     try {
-        // BƯỚC 3: Lấy kết nối MySQL
+
+        // ====================================
+        // BƯỚC 3: KẾT NỐI DATABASE MYSQL
+        // ====================================
+
         connection = await pool.getConnection();
 
         // Bắt đầu transaction
@@ -126,7 +147,10 @@ exports.createOrder = async (req, res) => {
 
         const products = [];
 
-        // BƯỚC 4: Kiểm tra sản phẩm và tồn kho
+        // ====================================
+        // BƯỚC 4: KIỂM TRA SẢN PHẨM VÀ TỒN KHO
+        // ====================================
+
         for (const item of cartItems) {
 
             const [rows] = await connection.query(
@@ -139,6 +163,7 @@ exports.createOrder = async (req, res) => {
 
             // Sản phẩm không tồn tại
             if (rows.length === 0) {
+
                 const error = new Error(
                     `Sản phẩm ${item.id} không tồn tại`
                 );
@@ -149,8 +174,9 @@ exports.createOrder = async (req, res) => {
 
             const product = rows[0];
 
-            // Kiểm tra số lượng tồn kho
+            // Kiểm tra tồn kho
             if (product.stock < item.quantity) {
+
                 const error = new Error(
                     `Sản phẩm ${product.name} không đủ tồn kho`
                 );
@@ -165,10 +191,20 @@ exports.createOrder = async (req, res) => {
             });
         }
 
-        // BƯỚC 5: Tạo mã đơn hàng duy nhất
+        // ====================================
+        // BƯỚC 5: TẠO MÃ ĐƠN HÀNG
+        // ====================================
+
         const orderId = randomUUID();
 
-        // BƯỚC 6: Lưu đơn hàng vào bảng orders
+        // ====================================
+        // BƯỚC 6: LƯU ĐƠN HÀNG VÀO MYSQL
+        // ====================================
+
+        // ĐÃ SỬA LỖI:
+        // Thêm cột status vào INSERT để MySQL
+        // không dùng giá trị mặc định bị lỗi mã hóa.
+
         await connection.query(
             `INSERT INTO orders
              (
@@ -176,21 +212,27 @@ exports.createOrder = async (req, res) => {
                 customer_name,
                 customer_phone,
                 customer_address,
-                total_price
+                total_price,
+                status
              )
-             VALUES (?, ?, ?, ?, 0)`,
+             VALUES (?, ?, ?, ?, 0, ?)`,
             [
                 orderId,
                 name.trim(),
                 phone.trim(),
-                address.trim()
+                address.trim(),
+                DEFAULT_ORDER_STATUS
             ]
         );
 
-        // BƯỚC 7: Lưu chi tiết và trừ tồn kho
+        // ====================================
+        // BƯỚC 7: LƯU CHI TIẾT ĐƠN HÀNG
+        // VÀ TRỪ TỒN KHO
+        // ====================================
+
         for (const product of products) {
 
-            // Lưu chi tiết đơn hàng
+            // Lưu sản phẩm vào order_items
             await connection.query(
                 `INSERT INTO order_items
                  (
@@ -210,7 +252,7 @@ exports.createOrder = async (req, res) => {
                 ]
             );
 
-            // Trừ số lượng sản phẩm trong kho
+            // Trừ tồn kho sau khi đặt hàng
             const [result] = await connection.query(
                 `UPDATE products
                  SET stock = stock - ?
@@ -222,7 +264,9 @@ exports.createOrder = async (req, res) => {
                 ]
             );
 
+            // Nếu cập nhật không thành công
             if (result.affectedRows !== 1) {
+
                 const error = new Error(
                     'Không thể cập nhật tồn kho'
                 );
@@ -232,7 +276,10 @@ exports.createOrder = async (req, res) => {
             }
         }
 
-        // BƯỚC 8: Tính tổng tiền từ MySQL
+        // ====================================
+        // BƯỚC 8: TÍNH TỔNG TIỀN ĐƠN HÀNG
+        // ====================================
+
         const [totalRows] = await connection.query(
             `SELECT COALESCE(
                 SUM(price * quantity), 0
@@ -244,7 +291,7 @@ exports.createOrder = async (req, res) => {
 
         const totalPrice = totalRows[0].total;
 
-        // Cập nhật tổng tiền cho đơn hàng
+        // Cập nhật tổng tiền
         await connection.query(
             `UPDATE orders
              SET total_price = ?
@@ -252,10 +299,13 @@ exports.createOrder = async (req, res) => {
             [totalPrice, orderId]
         );
 
-        // BƯỚC 9: Lưu toàn bộ transaction
+        // ====================================
+        // BƯỚC 9: LƯU TRANSACTION
+        // ====================================
+
         await connection.commit();
 
-        // Trả kết quả thành công
+        // Trả kết quả cho Frontend
         return res.status(201).json({
             success: true,
             message: 'Đặt hàng thành công',
@@ -266,13 +316,16 @@ exports.createOrder = async (req, res) => {
                 customerPhone: phone.trim(),
                 customerAddress: address.trim(),
                 totalPrice: totalPrice,
-                status: 'Chờ xác nhận'
+                status: DEFAULT_ORDER_STATUS
             }
         });
 
     } catch (error) {
 
-        // Nếu có lỗi thì hoàn tác transaction
+        // ====================================
+        // XỬ LÝ LỖI VÀ ROLLBACK
+        // ====================================
+
         if (connection) {
             try {
                 await connection.rollback();
@@ -308,8 +361,10 @@ exports.createOrder = async (req, res) => {
 // ============================================
 
 exports.getAllOrders = async (req, res) => {
+
     try {
 
+        // Lấy tối đa 100 đơn mới nhất
         const [orders] = await pool.query(
             `SELECT *
              FROM orders
@@ -317,6 +372,7 @@ exports.getAllOrders = async (req, res) => {
              LIMIT 100`
         );
 
+        // Lấy chi tiết các sản phẩm trong đơn
         const result = await Promise.all(
             orders.map(async (order) => {
 
@@ -326,11 +382,15 @@ exports.getAllOrders = async (req, res) => {
             })
         );
 
+        // Trả danh sách cho Frontend
         return res.status(200).json(result);
 
     } catch (error) {
 
-        console.error('Lỗi lấy đơn hàng:', error.message);
+        console.error(
+            'Lỗi lấy đơn hàng:',
+            error.message
+        );
 
         return res.status(500).json({
             success: false,
@@ -341,10 +401,11 @@ exports.getAllOrders = async (req, res) => {
 
 // ============================================
 // API 3: GET /api/orders/:id
-// XEM CHI TIẾT ĐƠN HÀNG
+// XEM CHI TIẾT MỘT ĐƠN HÀNG
 // ============================================
 
 exports.getOrderById = async (req, res) => {
+
     try {
 
         const orderId = req.params.id;
@@ -357,7 +418,7 @@ exports.getOrderById = async (req, res) => {
             });
         }
 
-        // Tìm đơn hàng trong MySQL
+        // Tìm đơn hàng
         const [orders] = await pool.query(
             `SELECT *
              FROM orders
@@ -373,7 +434,7 @@ exports.getOrderById = async (req, res) => {
             });
         }
 
-        // Lấy các sản phẩm trong đơn
+        // Lấy chi tiết sản phẩm trong đơn
         const items = await getOrderItems(orderId);
 
         return res.status(200).json({
@@ -383,7 +444,10 @@ exports.getOrderById = async (req, res) => {
 
     } catch (error) {
 
-        console.error('Lỗi chi tiết đơn:', error.message);
+        console.error(
+            'Lỗi chi tiết đơn:',
+            error.message
+        );
 
         return res.status(500).json({
             success: false,
