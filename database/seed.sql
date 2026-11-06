@@ -1,38 +1,30 @@
--- ShopOnline - Sample data
--- Chay sau schema.sql, chi mot lan tren database thu nghiem moi.
--- Chi su dung du lieu gia lap; khong import vao DB dang van hanh.
-
-USE shoponline;
+-- Du lieu DEMO HP; gia va cau hinh minh hoa, khong phai bao gia thuc te.
+-- Chi import mot lan vao database MOI sau schema.sql.
+-- Anh laptop minh hoa; khong phai anh chinh xac tung model.
+SET NAMES utf8mb4;
 START TRANSACTION;
+INSERT INTO products (id, name, description, price, stock, image) VALUES
+(1, 'HP Pavilion 15', 'Laptop HP Pavilion 15 cho học tập và văn phòng (dữ liệu mẫu).', 15990000, 20, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(2, 'HP Pavilion 14', 'Laptop HP Pavilion 14 gọn nhẹ (dữ liệu mẫu).', 14990000, 18, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(3, 'HP Envy x360 14', 'Laptop HP Envy x360 cho công việc sáng tạo (dữ liệu mẫu).', 24990000, 12, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(4, 'HP Spectre x360 14', 'Laptop HP Spectre x360 cao cấp (dữ liệu mẫu).', 35990000, 8, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(5, 'HP Victus 15', 'Laptop gaming HP Victus 15 (dữ liệu mẫu).', 21990000, 15, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(6, 'HP OMEN 16', 'Laptop gaming HP OMEN 16 (dữ liệu mẫu).', 39990000, 10, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(7, 'HP ProBook 440', 'Laptop doanh nghiệp HP ProBook 440 (dữ liệu mẫu).', 18990000, 16, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(8, 'HP EliteBook 840', 'Laptop HP EliteBook 840 cho công việc di động (dữ liệu mẫu).', 28990000, 9, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(9, 'HP 15s', 'Laptop HP 15s dành cho sinh viên (dữ liệu mẫu).', 11990000, 25, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(10, 'HP 240 G10', 'Laptop HP 240 G10 màn hình 14 inch (dữ liệu mẫu).', 12990000, 22, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(11, 'HP ZBook Firefly 14', 'Máy trạm di động HP ZBook Firefly (dữ liệu mẫu).', 32990000, 6, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80'),
+(12, 'HP Dragonfly G4', 'Laptop HP Dragonfly G4 mỏng nhẹ (dữ liệu mẫu).', 42990000, 5, 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&auto=format&fit=crop&q=80');
 
--- Tao 12 san pham gia lap.
-INSERT INTO products (product_id, name, description, price, stock_quantity, image_url, status) VALUES
-(1,'Ao thun nam','Ao cotton nam',199000,50,'aothun.jpg','active'),
-(2,'Ao hoodie','Ao hoodie ni',399000,30,'hoodie.jpg','active'),
-(3,'Quan jean','Quan jean slim fit',459000,25,'jean.jpg','active'),
-(4,'Giay sneaker','Giay sneaker trang',699000,20,'sneaker.jpg','active'),
-(5,'Tui tote','Tui tote canvas',149000,40,'tote.jpg','active'),
-(6,'Mu luoi trai','Mu thoi trang',129000,35,'mu.jpg','active'),
-(7,'Dong ho','Dong ho nam',899000,15,'dongho.jpg','active'),
-(8,'Vi da','Vi da nam',249000,28,'vida.jpg','active'),
-(9,'Kinh mat','Kinh thoi trang',319000,18,'kinh.jpg','active'),
-(10,'Balo laptop','Balo laptop 15 inch',549000,22,'balo.jpg','active'),
-(11,'Ao so mi','Ao so mi cong so',329000,32,'somi.jpg','active'),
-(12,'Quan short','Quan short nam',229000,27,'short.jpg','active');
-
--- Tao 3 don hang gia lap.
-INSERT INTO orders (order_id, customer_name, customer_phone, customer_address, total_amount, status) VALUES
-(1,'Nguyen Van A','0912345678','Ha Noi',497000,'pending'),
-(2,'Tran Thi B','0987654321','Hai Phong',828000,'confirmed'),
-(3,'Le Van C','0901122334','Da Nang',1047000,'completed');
-
--- Tao 6 dong chi tiet; tong tien khop voi bang orders.
-INSERT INTO order_items (order_id, product_id, quantity, unit_price, line_total) VALUES
-(1,1,1,199000,199000),
-(1,5,2,149000,298000),
-(2,4,1,699000,699000),
-(2,6,1,129000,129000),
-(3,2,2,399000,798000),
-(3,8,1,249000,249000);
-
+-- Khach hang gia lap. Ton kho o tren la so luong con lai sau cac don nay.
+INSERT INTO orders (id, customer_name, customer_phone, customer_address, total_price, status) VALUES
+('DEMO-HP-001', 'Khách hàng mẫu A', '0900000001', 'Hà Nội (địa chỉ mẫu)', 27980000, 'Chờ xác nhận'),
+('DEMO-HP-002', 'Khách hàng mẫu B', '0900000002', 'Hải Phòng (địa chỉ mẫu)', 21990000, 'Chờ xác nhận'),
+('DEMO-HP-003', 'Khách hàng mẫu C', '0900000003', 'Đà Nẵng (địa chỉ mẫu)', 37980000, 'Chờ xác nhận');
+INSERT INTO order_items (order_id, product_id, product_name, price, quantity) VALUES
+('DEMO-HP-001', 1, 'HP Pavilion 15', 15990000, 1),
+('DEMO-HP-001', 9, 'HP 15s', 11990000, 1),
+('DEMO-HP-002', 5, 'HP Victus 15', 21990000, 1),
+('DEMO-HP-003', 7, 'HP ProBook 440', 18990000, 2);
 COMMIT;
