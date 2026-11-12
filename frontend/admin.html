@@ -158,18 +158,42 @@
                                 placeholder="Ví dụ: 10">
                         </div>
 
-                        <!-- HÌNH ẢNH -->
+                        <!-- HÌNH ẢNH SẢN PHẨM -->
                         <div class="form-group">
-                            <label for="p-image">
-                                Link hình ảnh (URL)
+                            <label for="p-image-select">
+                                <i class="fa-solid fa-images"></i> Chọn ảnh sản phẩm có sẵn:
                             </label>
+                            <select id="p-image-select" class="form-control" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; margin-bottom: 8px;">
+                                <option value="">-- Chọn ảnh HP trong thư mục images --</option>
+                                <option value="images/hp-pavilion-15.jpg">HP Pavilion 15 (images/hp-pavilion-15.jpg)</option>
+                                <option value="images/hp-pavilion-14.jpg">HP Pavilion 14 (images/hp-pavilion-14.jpg)</option>
+                                <option value="images/hp-envy-x360.jpg">HP Envy x360 (images/hp-envy-x360.jpg)</option>
+                                <option value="images/hp-spectre-x360.jpg">HP Spectre x360 (images/hp-spectre-x360.jpg)</option>
+                                <option value="images/hp-victus-15.jpg">HP Victus 15 Gaming (images/hp-victus-15.jpg)</option>
+                                <option value="images/hp-omen-16.jpg">HP Omen 16 Gaming (images/hp-omen-16.jpg)</option>
+                                <option value="images/hp-probook-440.jpg">HP ProBook 440 (images/hp-probook-440.jpg)</option>
+                                <option value="images/hp-elitebook-840.jpg">HP EliteBook 840 (images/hp-elitebook-840.jpg)</option>
+                                <option value="images/hp-15s.jpg">HP 15s Sinh Viên (images/hp-15s.jpg)</option>
+                                <option value="images/hp-240-g10.jpg">HP 240 G10 (images/hp-240-g10.jpg)</option>
+                                <option value="images/hp-zbook.jpg">HP ZBook Firefly Workstation (images/hp-zbook.jpg)</option>
+                                <option value="images/hp-dragonfly.jpg">HP Dragonfly G4 Doanh Nhân (images/hp-dragonfly.jpg)</option>
+                            </select>
 
+                            <label for="p-image" style="font-size: 0.9rem; color: #64748b;">
+                                Hoặc dán đường dẫn ảnh / URL tùy ý:
+                            </label>
                             <input
-                                type="url"
+                                type="text"
                                 id="p-image"
                                 name="image"
                                 maxlength="500"
-                                placeholder="https://example.com/product.jpg">
+                                placeholder="images/hp-pavilion-15.jpg hoặc https://...">
+
+                            <!-- Khung xem trước ảnh (Preview) -->
+                            <div id="image-preview-container" style="margin-top: 10px; display: none; text-align: center; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                                <span style="font-size: 0.85rem; color: #64748b; display: block; margin-bottom: 5px;">Xem trước hình ảnh:</span>
+                                <img id="p-image-preview" src="" alt="Preview" style="max-width: 100%; max-height: 140px; border-radius: 6px; object-fit: contain; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            </div>
                         </div>
 
                         <!-- MÔ TẢ -->

@@ -420,6 +420,8 @@ function editProduct(id) {
     document.getElementById('p-image').value =
         product.image ?? '';
 
+    updateImagePreview(product.image ?? '');
+
     document.getElementById('p-desc').value =
         product.description ?? '';
 
@@ -466,6 +468,31 @@ function resetProductForm() {
 
     document.getElementById('btn-cancel-edit')
         .style.display = 'none';
+
+    updateImagePreview('');
+}
+
+// Cập nhật khung xem trước ảnh (Preview)
+function updateImagePreview(src) {
+    const container = document.getElementById('image-preview-container');
+    const previewImg = document.getElementById('p-image-preview');
+    const select = document.getElementById('p-image-select');
+
+    if (!container || !previewImg) return;
+
+    if (!src || !src.trim()) {
+        container.style.display = 'none';
+        previewImg.src = '';
+        if (select) select.value = '';
+        return;
+    }
+
+    previewImg.src = src.trim();
+    container.style.display = 'block';
+
+    if (select) {
+        select.value = src.trim();
+    }
 }
 
 // =====================================================
@@ -636,4 +663,22 @@ async function loadAdminOrders() {
 document.addEventListener('DOMContentLoaded', () => {
     // Tải danh sách sản phẩm khi mở Admin
     loadAdminProducts();
+
+    // Lắng nghe sự kiện chọn ảnh từ dropdown nội bộ
+    const imageSelect = document.getElementById('p-image-select');
+    const imageInput = document.getElementById('p-image');
+
+    if (imageSelect && imageInput) {
+        imageSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val) {
+                imageInput.value = val;
+                updateImagePreview(val);
+            }
+        });
+
+        imageInput.addEventListener('input', (e) => {
+            updateImagePreview(e.target.value);
+        });
+    }
 });
