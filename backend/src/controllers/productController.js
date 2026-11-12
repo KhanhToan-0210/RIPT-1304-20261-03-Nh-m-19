@@ -240,18 +240,86 @@ exports.updateProduct = async (req, res, next) => {
     }
 };
 
-// Chức năng quản trị sẽ triển khai sau
-exports.createProduct = (req, res) =>
-    res.status(501).json({
-        message: 'Chưa triển khai thêm sản phẩm'
-    });
+// ================================
+// 5. XÓA SẢN PHẨM
+// DELETE /api/products/:id
+// ================================
+exports.deleteProduct = async (req, res, next) => {
+    const id = parseId(req.params.id);
 
-exports.updateProduct = (req, res) =>
-    res.status(501).json({
-        message: 'Chưa triển khai sửa sản phẩm'
-    });
+    if (!id) {
+        return res.status(400).json({
+            message: 'ID sản phẩm không hợp lệ'
+        });
+    }
 
-exports.deleteProduct = (req, res) =>
-    res.status(501).json({
-        message: 'Chưa triển khai xóa sản phẩm'
-    });
+    let connection;
+    let transactionStarted = false;
+
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+        transactionStarted = true;
+
+        // Khóa sản phẩm trong lúc kiểm tra
+        const [products] = await connection.query(
+            'SELECT id FROM products WHERE id = ? FOR UPDATE',
+            [id]
+        );
+
+        if (products.length === 0) {
+            await connection.rollback();
+            transactionStarted = false;
+
+            return res.status(404).json({
+                message: 'Không tìm thấy sản phẩm'
+            });
+        }
+
+        // Chặn xóa nếu sản phẩm đã có đơn hàng
+        const [items] = await connection.query(
+            `SELECT id FROM order_items
+             WHERE product_id = ?
+             LIMIT 1`,
+            [id]
+        );
+
+        if (items.length > 0) {
+            await connection.rollback();
+            transactionStarted = false;
+
+            return res.status(409).json({
+                message: 'Không thể xóa sản phẩm đã có đơn hàng'
+            });
+        }
+
+        // Chỉ xóa sản phẩm chưa từng được đặt hàng
+        await connection.query(
+            'DELETE FROM products WHERE id = ?',
+            [id]
+        );
+
+        await connection.commit();
+        transactionStarted = false;
+
+        return res.status(200).json({
+            success: true,
+            message: 'Xóa sản phẩm thành công'
+        });
+
+    } catch (error) {
+        if (connection && transactionStarted) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error('Rollback error:', rollbackError);
+            }
+        }
+
+        next(error);
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+};
