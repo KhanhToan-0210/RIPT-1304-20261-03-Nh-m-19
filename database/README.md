@@ -1,3 +1,118 @@
+# Database và môi trường TEST — PHA B
+
+Các lệnh dưới đây chạy từ worktree `D:\BTL_platform\shoponline-integration`, nhánh `integration/shoponline-completion`. Kết quả thực chạy được cập nhật trong `docs/IMPLEMENTATION_STATUS.md`.
+
+## Cấu hình TEST
+
+| Thành phần | Cấu hình |
+| --- | --- |
+| Compose độc lập | `compose.test.yml` |
+| Project của lần kiểm tra PHA B | `shoponline-test-b-20261117` |
+| Web A / Web B | `http://127.0.0.1:18000` / `http://127.0.0.1:18001` |
+| Database của mỗi cặp | `shoponline_check_phase_b` trên hai MySQL riêng |
+| Volume | `shoponline-test-b-20261117_primary_test_data`, `shoponline-test-b-20261117_standby_test_data` |
+| Mạng | Network riêng theo project. MySQL chỉ mở trong network này |
+| Quyền web | Tài khoản `shoponline_test`, quyền trên DB TEST do MySQL entrypoint tạo |
+| Khởi tạo volume mới | `01-schema.sql` rồi `02-seed.sql`, mount chỉ đọc |
+
+Compose dùng tên container theo project. Backend/frontend được đóng gói từ worktree, và thư mục `database` được mount chỉ đọc để chạy verifier. Các mật khẩu trong file TEST là credential dành cho dữ liệu giả của môi trường này.
+
+## Khởi tạo và chạy smoke
+
+Sau khi Docker Engine và builder hoạt động, kiểm tra cấu hình rồi khởi tạo TEST bằng cùng project name.
+
+```powershell
+docker compose -f compose.test.yml -p shoponline-test-b-20261117 config --quiet
+docker compose -f compose.test.yml -p shoponline-test-b-20261117 up -d --build --wait --wait-timeout 180
+docker compose -f compose.test.yml -p shoponline-test-b-20261117 ps
+
+# Dành cho lần đầu với volume TEST mới, trước khi tạo thêm dữ liệu.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -ProjectName shoponline-test-b-20261117 -Mode seed
+
+# CRUD, đơn hàng, tồn kho, rollback và cạnh tranh trên MySQL.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -ProjectName shoponline-test-b-20261117 -Mode api
+
+# Đối chiếu schema, ràng buộc và tổng tiền với số lượng bản ghi hiện tại.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -ProjectName shoponline-test-b-20261117 -Mode verify
+```
+
+Mode `seed` xác nhận 12 sản phẩm, 3 đơn, 4 chi tiết và tiếng Việt trên cả hai DB vừa khởi tạo. Các lần smoke tiếp theo dùng `api` hoặc `verify`, vì dữ liệu TEST đã phát sinh thêm. Init script của MySQL chỉ được thực thi khi volume mới được khởi tạo.
+
+Mode `api` tạo sản phẩm và đơn hàng giả với tên riêng cho từng lượt. Các bản ghi này được giữ lại để kiểm tra. Ca DELETE sử dụng một sản phẩm giả vừa tạo, và ca kiểm tra FK thực hiện trên sản phẩm giả đã có đơn. Các API được kiểm tra gồm đọc/thêm/sửa/xóa sản phẩm, tạo/đọc đơn, rollback thiếu hàng, CHECK/FK, hai đơn tranh tồn kho cuối cùng và cập nhật stock đồng thời với đặt đơn.
+
+## Quy ước cập nhật tồn kho
+
+PUT sản phẩm hỗ trợ cập nhật từng phần. Khi chỉ sửa thông tin sản phẩm, bên gọi bỏ trường `stock`. Khi chỉnh tồn kho, gửi cả `stock` mới và `expectedStock` đã đọc khi mở form.
+
+```json
+{ "stock": 10, "expectedStock": 5 }
+```
+
+API thực hiện một UPDATE có điều kiện `WHERE id = ? AND stock = ?`. Nếu đơn hàng hoặc người khác đã đổi tồn kho, API trả JSON HTTP 409 và yêu cầu tải lại sản phẩm. Thiếu `expectedStock` khi gửi `stock` trả 428. Dữ liệu không hợp lệ trả 400. Admin đã gửi giá trị này từ snapshot lúc mở form.
+
+API lỗi trả JSON có `success: false` và `message`. `/health` bổ sung `environment`, `databaseName`, `node`. Verifier kiểm tra `APP_ENV=test`, DB đích và prefix `shoponline_check_*` trước khi ghi qua HTTP.
+
+## Unit test
+
+Lệnh chính là `npm --prefix backend test`. Npm script chạy tuần tự các file test để giảm số tiến trình đồng thời trên máy Windows hiện tại.
+
+Trong phiên PHA B, dependency được cài theo `backend/package-lock.json` tại `D:\BTL_platform\shoponline-unit-deps-20261117`. Có thể chạy lại bằng các lệnh sau.
+
+```powershell
+$env:NODE_PATH = 'D:\BTL_platform\shoponline-unit-deps-20261117\node_modules'
+npm --prefix backend test
+```
+
+Để chuẩn bị dependency riêng trên máy khác, tạo thư mục mới rồi chạy từ worktree.
+
+```powershell
+$testDependencyPath = Join-Path ([IO.Path]::GetTempPath()) ('shoponline-unit-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $testDependencyPath | Out-Null
+Copy-Item -LiteralPath backend/package.json,backend/package-lock.json -Destination $testDependencyPath
+npm ci --prefix $testDependencyPath --ignore-scripts --no-audit --no-fund
+$env:NODE_PATH = Join-Path $testDependencyPath 'node_modules'
+npm --prefix backend test
+```
+
+Các unit test dùng DOM/localStorage giả lập và pool DB giả lập. Nhóm kiểm tra lỗi HTTP dùng Express thật trên cổng loopback ngẫu nhiên. Kiểm thử MySQL thực tế được thực hiện bằng smoke `api` trên TEST.
+
+## Browser smoke trên cả A/B
+
+`scripts/browser-smoke.cjs` chạy Chrome headless với profile tạm. Script kiểm tra health có định danh TEST trước khi thao tác trên cổng 18000/18001, rồi tạo sản phẩm/đơn giả qua UI và kiểm tra giỏ hàng, XSS render, tồn kho, form cũ và CRUD admin. Các record giả được giữ lại để đối chiếu.
+
+Phiên PHA B đã kiểm tra với Playwright `1.65.1` và Chrome `157.0.8103.79`. Máy cần có Google Chrome và hai web TEST đang hoạt động. Dependency Playwright của phiên này nằm ở thư mục riêng, có thể chạy lại bằng các lệnh sau.
+
+```powershell
+$env:NODE_PATH = 'D:\BTL_platform\shoponline-browser-deps-20261117\node_modules'
+node scripts/browser-smoke.cjs
+```
+
+Để chuẩn bị công cụ kiểm thử trên máy khác, dùng thư mục mới rồi cài đúng phiên bản đã kiểm tra.
+
+```powershell
+$browserTestPath = Join-Path ([IO.Path]::GetTempPath()) ('shoponline-browser-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $browserTestPath | Out-Null
+npm install --prefix $browserTestPath --ignore-scripts --no-audit --no-fund playwright@1.65.1
+$env:NODE_PATH = Join-Path $browserTestPath 'node_modules'
+node scripts/browser-smoke.cjs
+```
+
+Sau reboot ngày 17/11/2026, cả bootstrap seed, hai vòng smoke API, verify động và browser smoke trên A/B đều PASS. Kết quả chi tiết cùng ID đơn UI đã đối chiếu trực tiếp MySQL nằm trong mục 17 của `docs/IMPLEMENTATION_STATUS.md`.
+
+## Các mode verifier
+
+| Mode | Hành vi |
+| --- | --- |
+| `init` | Tạo DB `shoponline_check_*` mới, nạp schema/seed và kiểm tra fixture. Cần tài khoản có quyền CREATE DATABASE |
+| `seed` | Đọc và xác nhận schema cùng fixture ngay sau bootstrap mới |
+| `verify` | Đọc schema, FK, dữ liệu và tổng tiền với số bản ghi động |
+| `api` | Kiểm tra schema rồi kiểm thử CRUD/đặt đơn trên API có định danh TEST |
+
+ERD hiện tại nằm tại `docs/erd.png`, với nguồn Mermaid tại `docs/erd.mmd`. Các script backup, sync và failback hiện hữu được theo dõi tiếp trong kế hoạch PHA C–F.
+
+<details>
+<summary>Ghi chép lịch sử trước PHA B — code và kết quả ngày 06/11/2026</summary>
+
 # Database tương thích backend Ly
 
 Phạm vi thay đổi chỉ nằm trong `database/`. Backend, frontend, Docker Compose và
@@ -165,3 +280,5 @@ Backup trước triển khai:
 - Standby: `shoponline_20261106_231636_338c96fc.sql`.
 
 Các lần khởi động sau tiếp tục dùng cùng lệnh Compose; không cần import lại seed.
+
+</details>

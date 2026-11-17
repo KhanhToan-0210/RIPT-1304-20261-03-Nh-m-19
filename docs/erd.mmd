@@ -1,0 +1,30 @@
+erDiagram
+    products ||--o{ order_items : "product_id / DELETE RESTRICT"
+    orders ||--o{ order_items : "order_id / DELETE CASCADE"
+    products {
+        INT id PK "AUTO_INCREMENT"
+        VARCHAR(255) name "NOT NULL"
+        DECIMAL price "DECIMAL(15,2), NOT NULL DEFAULT 0, CHECK >= 0"
+        VARCHAR(500) image "NULL"
+        INT stock "NOT NULL DEFAULT 0, CHECK >= 0"
+        TEXT description "NULL"
+        TIMESTAMP created_at "DEFAULT CURRENT_TIMESTAMP"
+        TIMESTAMP updated_at "DEFAULT CURRENT_TIMESTAMP, ON UPDATE CURRENT_TIMESTAMP"
+    }
+    orders {
+        VARCHAR(50) id PK "NOT NULL, UUID or legacy string ID"
+        VARCHAR(255) customer_name "NOT NULL"
+        VARCHAR(50) customer_phone "NOT NULL"
+        TEXT customer_address "NOT NULL"
+        DECIMAL total_price "DECIMAL(15,2), NOT NULL DEFAULT 0, CHECK >= 0"
+        VARCHAR(50) status "NOT NULL DEFAULT Chờ xác nhận"
+        TIMESTAMP created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+    order_items {
+        INT id PK "AUTO_INCREMENT"
+        VARCHAR(50) order_id FK "NOT NULL"
+        INT product_id FK "NOT NULL"
+        VARCHAR(255) product_name "NOT NULL, name at purchase"
+        DECIMAL price "DECIMAL(15,2), NOT NULL, price at purchase, CHECK >= 0"
+        INT quantity "NOT NULL DEFAULT 1, CHECK > 0"
+    }
