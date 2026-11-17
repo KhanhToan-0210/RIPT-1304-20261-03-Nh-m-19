@@ -4,7 +4,8 @@
   "description": "Website ban hang can ban - Mon Nhap mon cong nghe nen tang",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js ../frontend/test/*.test.cjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

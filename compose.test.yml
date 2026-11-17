@@ -1,0 +1,78 @@
+name: shoponline-test
+
+x-test-web: &test-web
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: "no"
+  volumes:
+    - ./database:/app/database:ro
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+    interval: 3s
+    timeout: 5s
+    retries: 20
+    start_period: 10s
+
+x-test-db: &test-db
+  image: mysql:8.0
+  restart: "no"
+  environment:
+    MYSQL_ROOT_PASSWORD: test-root-only
+    MYSQL_DATABASE: shoponline_check_phase_b
+    MYSQL_USER: shoponline_test
+    MYSQL_PASSWORD: test-app-only
+  healthcheck:
+    test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u \"$$MYSQL_USER\" \"$$MYSQL_DATABASE\" -e 'SELECT COUNT(*) FROM order_items' > /dev/null"]
+    interval: 3s
+    timeout: 5s
+    retries: 30
+    start_period: 30s
+
+x-test-app-env: &test-app-env
+  PORT: "3000"
+  DB_PORT: "3306"
+  DB_USER: shoponline_test
+  DB_PASSWORD: test-app-only
+  DB_NAME: shoponline_check_phase_b
+  APP_ENV: test
+
+services:
+  primary-db:
+    <<: *test-db
+    volumes:
+      - primary_test_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+  standby-db:
+    <<: *test-db
+    volumes:
+      - standby_test_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+  primary-web:
+    <<: *test-web
+    ports:
+      - "127.0.0.1:${TEST_PRIMARY_PORT:-18000}:3000"
+    environment:
+      <<: *test-app-env
+      DB_HOST: primary-db
+      NODE_NAME: test-primary
+    depends_on:
+      primary-db:
+        condition: service_healthy
+  standby-web:
+    <<: *test-web
+    ports:
+      - "127.0.0.1:${TEST_STANDBY_PORT:-18001}:3000"
+    environment:
+      <<: *test-app-env
+      DB_HOST: standby-db
+      NODE_NAME: test-standby
+    depends_on:
+      standby-db:
+        condition: service_healthy
+
+volumes:
+  primary_test_data:
+  standby_test_data:
