@@ -6,6 +6,7 @@ const cors = require('cors');
 const productRoutes = require('./src/routes/productRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
 const pool = require('./src/config/db');
+const errorHandler = require('./src/middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,7 +27,10 @@ app.get('/health', async (req, res) => {
         res.status(200).json({
             status: 'ok',
             server: 'running',
-            database: 'connected'
+            database: 'connected',
+            databaseName: process.env.DB_NAME,
+            environment: process.env.APP_ENV || 'development',
+            node: process.env.NODE_NAME || 'web'
         });
     } catch (error) {
         console.error('Health check error:', error.message);
@@ -42,8 +46,16 @@ app.get('/health', async (req, res) => {
 
 // Phục vụ giao diện Frontend
 const frontendPath = path.join(__dirname, '../frontend');
-app.use(express.static(frontendPath));
-
-app.listen(PORT, () => {
-  console.log(`Server đang lắng nghe tại cổng ${PORT}`);
+app.use('/api', (req, res) => {
+    res.status(404).json({ success: false, message: 'Không tìm thấy API' });
 });
+app.use(express.static(frontendPath));
+app.use(errorHandler);
+
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server đang lắng nghe tại cổng ${PORT}`);
+    });
+}
+
+module.exports = app;

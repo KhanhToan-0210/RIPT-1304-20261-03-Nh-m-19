@@ -48,7 +48,8 @@ function validateProduct(body, current = {}) {
     // DECIMAL(15,2): tối đa 13 chữ số phần nguyên
     const priceText = String(price ?? '').trim();
 
-    if (!/^\d{1,13}(\.\d{1,2})?$/.test(priceText)) {
+    if (!['number', 'string'].includes(typeof price) ||
+        !/^\d{1,13}(\.\d{1,2})?$/.test(priceText)) {
         return {
             error: 'Giá phải là số không âm, tối đa 2 chữ số thập phân'
         };
@@ -58,7 +59,7 @@ function validateProduct(body, current = {}) {
     const stockText = String(stock ?? '').trim();
     const stockNumber = Number(stockText);
 
-    if (!/^\d+$/.test(stockText) ||
+    if (!['number', 'string'].includes(typeof stock) || !/^\d+$/.test(stockText) ||
         !Number.isSafeInteger(stockNumber) ||
         stockNumber > 2147483647) {
         return {
@@ -116,6 +117,7 @@ exports.getProductById = async (req, res, next) => {
 
         if (!id) {
             return res.status(400).json({
+                success: false,
                 message: 'ID sản phẩm không hợp lệ'
             });
         }
@@ -127,6 +129,7 @@ exports.getProductById = async (req, res, next) => {
 
         if (products.length === 0) {
             return res.status(404).json({
+                success: false,
                 message: 'Không tìm thấy sản phẩm'
             });
         }
@@ -147,6 +150,7 @@ exports.createProduct = async (req, res, next) => {
 
         if (error) {
             return res.status(400).json({
+                success: false,
                 message: error
             });
         }
@@ -185,6 +189,7 @@ exports.updateProduct = async (req, res, next) => {
 
         if (!id) {
             return res.status(400).json({
+                success: false,
                 message: 'ID sản phẩm không hợp lệ'
             });
         }
@@ -196,6 +201,7 @@ exports.updateProduct = async (req, res, next) => {
 
         if (products.length === 0) {
             return res.status(404).json({
+                success: false,
                 message: 'Không tìm thấy sản phẩm'
             });
         }
@@ -207,27 +213,62 @@ exports.updateProduct = async (req, res, next) => {
 
         if (error) {
             return res.status(400).json({
+                success: false,
                 message: error
             });
         }
 
-        await pool.query(
-            `UPDATE products
-             SET name = ?,
-                 price = ?,
-                 stock = ?,
-                 image = ?,
-                 description = ?
-             WHERE id = ?`,
-            [
-                data.name,
-                data.price,
-                data.stock,
-                data.image,
-                data.description,
-                id
-            ]
+        const fields = ['name = ?', 'price = ?', 'image = ?', 'description = ?'];
+        const values = [data.name, data.price, data.image, data.description];
+        const changesStock = req.body.stock !== undefined;
+        let expectedStock;
+
+        if (changesStock) {
+            if (req.body.expectedStock === undefined) {
+                return res.status(428).json({
+                    success: false,
+                    message: 'Cập nhật tồn kho cần expectedStock từ lần đọc sản phẩm gần nhất'
+                });
+            }
+
+            const expectedText = String(req.body.expectedStock ?? '').trim();
+            expectedStock = Number(expectedText);
+            if (!['number', 'string'].includes(typeof req.body.expectedStock) ||
+                !/^\d+$/.test(expectedText) ||
+                !Number.isSafeInteger(expectedStock) || expectedStock > 2147483647) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'expectedStock phải là số nguyên không âm hợp lệ'
+                });
+            }
+
+            fields.push('stock = ?');
+            values.push(data.stock);
+        }
+
+        values.push(id);
+        let condition = 'id = ?';
+        if (changesStock) {
+            // InnoDB checks this condition after acquiring the row lock.
+            // A checkout that changes stock makes a stale form fail atomically.
+            condition += ' AND stock = ?';
+            values.push(expectedStock);
+        }
+
+        const [result] = await pool.query(
+            `UPDATE products SET ${fields.join(', ')} WHERE ${condition}`,
+            values
         );
+
+        if (result.affectedRows === 0) {
+            const [current] = await pool.query('SELECT id FROM products WHERE id = ?', [id]);
+            return res.status(current.length ? 409 : 404).json({
+                success: false,
+                message: current.length
+                    ? 'Tồn kho đã thay đổi. Hãy mở lại sản phẩm để tải tồn kho mới rồi lưu lại'
+                    : 'Không tìm thấy sản phẩm'
+            });
+        }
 
         const [updated] = await pool.query(
             'SELECT * FROM products WHERE id = ?',
@@ -249,6 +290,7 @@ exports.deleteProduct = async (req, res, next) => {
 
     if (!id) {
         return res.status(400).json({
+            success: false,
             message: 'ID sản phẩm không hợp lệ'
         });
     }
@@ -272,6 +314,7 @@ exports.deleteProduct = async (req, res, next) => {
             transactionStarted = false;
 
             return res.status(404).json({
+                success: false,
                 message: 'Không tìm thấy sản phẩm'
             });
         }
@@ -289,6 +332,7 @@ exports.deleteProduct = async (req, res, next) => {
             transactionStarted = false;
 
             return res.status(409).json({
+                success: false,
                 message: 'Không thể xóa sản phẩm đã có đơn hàng'
             });
         }

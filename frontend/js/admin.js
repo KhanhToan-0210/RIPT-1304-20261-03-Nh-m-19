@@ -120,9 +120,11 @@ async function callApi(url, options = {}) {
                 ? data.message
                 : null;
 
-        throw new Error(
+        const error = new Error(
             message || `Máy chủ trả về lỗi HTTP ${response.status}`
         );
+        error.status = response.status;
+        throw error;
     }
 
     return data;
@@ -343,6 +345,14 @@ async function handleProductSubmit(event) {
     };
 
     const isEditing = Boolean(id);
+    if (isEditing) {
+        const expectedText = document.getElementById('p-expected-stock').value;
+        if (!/^\d+$/.test(expectedText)) {
+            alert('Hãy mở lại sản phẩm để tải tồn kho trước khi lưu');
+            return;
+        }
+        payload.expectedStock = Number(expectedText);
+    }
 
     const url = isEditing
         ? `/api/products/${encodeURIComponent(id)}`
@@ -381,6 +391,7 @@ async function handleProductSubmit(event) {
         console.error('Lỗi lưu sản phẩm:', error);
 
         alert(`Không thể lưu sản phẩm: ${error.message}`);
+        if (error.status === 409) await loadAdminProducts();
 
     } finally {
         saveButton.disabled = false;
@@ -416,6 +427,7 @@ function editProduct(id) {
 
     document.getElementById('p-stock').value =
         product.stock ?? 0;
+    document.getElementById('p-expected-stock').value = product.stock;
 
     document.getElementById('p-image').value =
         product.image ?? '';
@@ -457,6 +469,7 @@ function resetProductForm() {
     form.reset();
 
     document.getElementById('p-id').value = '';
+    document.getElementById('p-expected-stock').value = '';
 
     document.getElementById('form-title').innerHTML = `
         <i class="fa-solid fa-plus-circle"></i>
@@ -480,14 +493,15 @@ function updateImagePreview(src) {
 
     if (!container || !previewImg) return;
 
-    if (!src || !src.trim()) {
+    const imageUrl = safeImageUrl(src);
+    if (!imageUrl) {
         container.style.display = 'none';
         previewImg.src = '';
         if (select) select.value = '';
         return;
     }
 
-    previewImg.src = src.trim();
+    previewImg.src = imageUrl;
     container.style.display = 'block';
 
     if (select) {
