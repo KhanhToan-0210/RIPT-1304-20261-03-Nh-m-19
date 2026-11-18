@@ -365,7 +365,8 @@ async function handlePlaceOrder(e) {
   renderCartPage();
 
   try {
-    const res = await fetch('/api/orders', {
+    const submit = window.ShopOnlineApi?.mutate || fetch;
+    const res = await submit('/api/orders', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -407,8 +408,8 @@ async function handlePlaceOrder(e) {
     console.error(error);
 
     alert(
-      'Không thể kết nối máy chủ để đặt hàng. ' +
-      'Vui lòng kiểm tra lại Backend.'
+      (error.message || 'Chưa xác nhận được kết quả đặt hàng.') +
+      ' Hãy giữ nguyên nội dung khi thử lại để tránh tạo đơn trùng.'
     );
   } finally {
     isSubmittingOrder = false;

@@ -98,7 +98,10 @@ function safeImageUrl(value) {
 
 // Hàm gọi API và xử lý lỗi
 async function callApi(url, options = {}) {
-    const response = await fetch(url, {
+    const method = String(options.method || 'GET').toUpperCase();
+    const send = !['GET', 'HEAD', 'OPTIONS'].includes(method) && window.ShopOnlineApi
+        ? window.ShopOnlineApi.mutate : fetch;
+    const response = await send(url, {
         cache: 'no-store',
         ...options
     });
