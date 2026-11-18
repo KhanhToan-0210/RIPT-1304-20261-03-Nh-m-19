@@ -1,0 +1,125 @@
+name: shoponline-c2a-20261118
+
+x-c2a-db: &c2a-db
+  image: mysql:8.0
+  restart: "no"
+  healthcheck:
+    test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT 1' > /dev/null"]
+    interval: 3s
+    timeout: 5s
+    retries: 40
+    start_period: 30s
+
+x-c2a-web: &c2a-web
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: "no"
+  volumes:
+    - ./database:/app/database:ro
+    - ./scripts:/app/scripts:ro
+    - ./gateway:/app/gateway:ro
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+    interval: 3s
+    timeout: 5s
+    retries: 20
+    start_period: 10s
+
+x-c2a-env: &c2a-env
+  APP_ENV: test
+  CLUSTER_MODE: ${C2_CLUSTER_MODE:-c2a}
+  CLUSTER_NAMESPACE: shoponline-c2a-20261118
+  DB_PORT: "3306"
+  CONTROL_DB_HOST: control-db
+  CONTROL_DB_PORT: "3306"
+  CONTROL_DB_NAME: shoponline_control_c2a
+
+services:
+  control-db:
+    <<: *c2a-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${C2A_CONTROL_ROOT_PASSWORD:?Run bootstrap-c2a.cjs first}
+      MYSQL_DATABASE: shoponline_control_c2a
+    command: ["--innodb-flush-log-at-trx-commit=1", "--sync-binlog=1"]
+    ports: ["127.0.0.1:18106:3306"]
+    volumes:
+      - control_data:/var/lib/mysql
+      - ./database/control-schema.sql:/docker-entrypoint-initdb.d/01-control.sql:ro
+  primary-db:
+    <<: *c2a-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${C2A_PRIMARY_ROOT_PASSWORD:?Run bootstrap-c2a.cjs first}
+    volumes:
+      - primary_data:/var/lib/mysql
+  standby-db:
+    <<: *c2a-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${C2A_STANDBY_ROOT_PASSWORD:?Run bootstrap-c2a.cjs first}
+    volumes:
+      - standby_data:/var/lib/mysql
+  primary-web:
+    <<: *c2a-web
+    environment:
+      <<: *c2a-env
+      CLUSTER_NODE: A
+      NODE_NAME: c2a-primary
+      DB_HOST: primary-db
+      DB_NAME: ${C2A_PRIMARY_DB_NAME:-shoponline_check_c2a_a_20261118}
+      DB_USER: ${C2A_PRIMARY_DB_USER:-c2a_reader_a}
+      CLUSTER_EPOCH: ${C2A_PRIMARY_EPOCH:-0}
+      DB_PASSWORD: ${C2A_PRIMARY_READER_PASSWORD:?Run bootstrap-c2a.cjs first}
+      CONTROL_DB_USER: c2a_control_a
+      CONTROL_DB_PASSWORD: ${C2A_CONTROL_A_PASSWORD:?Run bootstrap-c2a.cjs first}
+    ports: ["127.0.0.1:18100:3000"]
+    depends_on:
+      primary-db: {condition: service_healthy}
+      control-db: {condition: service_healthy}
+  standby-web:
+    <<: *c2a-web
+    environment:
+      <<: *c2a-env
+      CLUSTER_NODE: B
+      NODE_NAME: c2a-standby
+      DB_HOST: standby-db
+      DB_NAME: ${C2A_STANDBY_DB_NAME:-shoponline_check_c2a_b_20261118}
+      DB_USER: ${C2A_STANDBY_DB_USER:-c2a_reader_b}
+      CLUSTER_EPOCH: ${C2A_STANDBY_EPOCH:-0}
+      DB_PASSWORD: ${C2A_STANDBY_READER_PASSWORD:?Run bootstrap-c2a.cjs first}
+      CONTROL_DB_USER: c2a_control_b
+      CONTROL_DB_PASSWORD: ${C2A_CONTROL_B_PASSWORD:?Run bootstrap-c2a.cjs first}
+    ports: ["127.0.0.1:18101:3000"]
+    depends_on:
+      standby-db: {condition: service_healthy}
+      control-db: {condition: service_healthy}
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    restart: "no"
+    environment:
+      APP_ENV: test
+      CLUSTER_NAMESPACE: shoponline-c2a-20261118
+      CONTROL_DB_HOST: control-db
+      CONTROL_DB_NAME: shoponline_control_c2a
+      CONTROL_DB_USER: c2_gateway_reader
+      CONTROL_DB_PASSWORD: ${C2_GATEWAY_PASSWORD:-unconfigured}
+    ports: ["127.0.0.1:18080:8080"]
+    volumes:
+      - gateway_config:/state
+      - ./database:/app/database:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/live > /dev/null"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  primary_data:
+  standby_data:
+  control_data:
+  gateway_config:
+
+networks:
+  default:
+    driver: bridge
