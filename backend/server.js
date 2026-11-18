@@ -11,9 +11,17 @@ const errorHandler = require('./src/middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const { installClusterFoundation } = require('./src/clusterFoundation');
+const cluster = installClusterFoundation(app, { dataPool: pool, env: process.env });
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+if (cluster?.config.mode === 'c2') {
+    const { transactionMiddleware } = require('./src/services/writeTransaction');
+    app.use('/api', transactionMiddleware({ controlPool: cluster.controlPool, dataPool: pool, config: cluster.config }));
+}
 
 // Định tuyến API
 app.use('/api/products', productRoutes);

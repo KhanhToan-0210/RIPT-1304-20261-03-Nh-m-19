@@ -1,5 +1,6 @@
 
 const mysql = require('mysql2/promise');
+const { bindPool } = require('../services/requestTransaction');
 
 // Tạo kết nối với cơ sở dữ liệu MySQL
 const pool = mysql.createPool({
@@ -10,8 +11,11 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME,
 
     waitForConnections: true,
-    connectionLimit: 10
+    connectionLimit: 10,
+    supportBigNumbers: true,
+    bigNumberStrings: true,
+    connectTimeout: 5000
 });
 
 // Xuất kết nối để các file khác sử dụng
-module.exports = pool;
+module.exports = bindPool(pool);
