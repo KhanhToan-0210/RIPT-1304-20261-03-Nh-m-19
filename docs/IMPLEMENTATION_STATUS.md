@@ -1,8 +1,8 @@
-# ShopOnline — Trạng thái triển khai PHA A và PHA B
+# ShopOnline — Trạng thái A/B, C1/C2a và nghiệm thu KT1–KT3
 
-Ngày kiểm tra 17/11/2026, múi giờ Asia/Saigon.
+Ngày cập nhật 18/11/2026, múi giờ Asia/Saigon.
 
-**Cập nhật hiện tại — PHA B đạt cổng nghiệm thu trên TEST sau khi khởi động lại Windows.** Unit test 47/47, bootstrap, hai vòng smoke API, UI trên cả A/B và đối chiếu MySQL đều PASS. Chi tiết file, kết quả và bàn giao ở mục 10–17. Đang chờ người dùng review kết quả PHA B trước PHA C.
+**Cập nhật hiện tại — KT1, KT2, KT3 và vận hành tối thiểu đã PASS trên TEST ngày 18/11/2026, dừng để người dùng review.** A đang là writer ở epoch/generation 5. Đơn tạo trên B được bảo toàn trên DB mới của A. Unit test cuối PASS 103/103 trên Windows và container. HEAD vẫn `17c4655`; lịch sử A/B, C1 và C2a giữ ở mục 1–19. Kết quả đầy đủ và giới hạn ở mục 20, ảnh/log tại `docs/EVIDENCE_INDEX.md`.
 
 ## 1. Phạm vi và điểm xuất phát của PHA A
 
@@ -320,3 +320,243 @@ Browser smoke đã kiểm tra create/read sản phẩm và ảnh cục bộ; JSO
 Đã so sánh metadata trước/sau của bốn container demo. ID, StartedAt và mount khớp snapshot ban đầu. Git diff cho các file Compose demo, schema/seed và script backup/sync/failback hiện hữu rỗng. Source PHA B gồm 24 file thay đổi đang chờ review trong worktree riêng.
 
 Cổng B đã đạt. Điểm dừng hiện tại là người dùng review PHA B trước PHA C.
+
+## 18. PHA C1 — Thiết kế chi tiết, chờ duyệt C2
+
+Người dùng đã xác nhận PHA A/B được nghiệm thu và yêu cầu riêng PHA C1. Phạm vi thực hiện của lượt này gồm hai tài liệu mới cùng cập nhật trạng thái, với kiểm tra tĩnh và đọc hệ thống.
+
+### Baseline và khác biệt so với các ghi chép trước
+
+| Hạng mục | Kết quả C1 |
+| --- | --- |
+| Worktree | `D:\BTL_platform\shoponline-integration` |
+| Branch | `integration/shoponline-completion` |
+| HEAD | `17c46552eb27a744c447bb7f323fb591e7f5058b` |
+| Log ba commit mới | `5ae7d1f` reliability, `61ad4e5` isolated tests, `17c4655` docs, khớp yêu cầu |
+| Git trước khi viết | Status sạch, diff/stat rỗng và danh sách untracked rỗng |
+| TEST | Project `shoponline-test-b-20261117`, bốn service running/healthy, Engine 29.9.2 |
+| HTTP GET | A/B health 200, node TEST đúng; A 26 products/11 orders, B 22/10 |
+| SELECT thực | DB `shoponline_check_phase_b` trên hai server UUID riêng, MySQL 8.0.46, items A/B 12/11, ba bảng nghiệp vụ |
+| Quyền ghi hiện tại | read_only và super_read_only đều 0 ở A/B, source chưa có coordinator/write guard |
+
+Các mục PHA B ghi HEAD `b1aef42` và source đang chờ review mô tả thời điểm trước ba commit được người dùng cung cấp. C1 dùng `17c4655` làm nền. Các quan sát Git, identity và số bản ghi hiện tại khớp phạm vi báo cáo B đã kiểm tra. A/B khác bộ dữ liệu thử như đã ghi nhận ở PHA B; lựa chọn nguồn A ban đầu cần được duyệt trước bootstrap C2.
+
+### Tài liệu đã tạo/cập nhật
+
+| File | Kết quả C1 |
+| --- | --- |
+| `docs/PHASE_C_DESIGN.md` mới | Kiến trúc, Mermaid, bốn state, admission/gate/fencing, drain/commit unknown, readiness, chọn DB sau restore, gateway/reload/restart, A → B, thiết kế B → A cho F và bảng lỗi/rollback |
+| `docs/PHASE_C_TEST_PLAN.md` mới | 15 ca C2 bắt buộc, 9 ca failure window bổ sung, phương pháp, oracle, PASS/FAIL, giới hạn và người chủ trì |
+| `docs/IMPLEMENTATION_STATUS.md` | Baseline C1, quyết định cần duyệt, file C2 dự kiến và bàn giao |
+
+### Phương án thiết kế đề xuất
+
+Một URL gateway TEST 18080, hai web/DB hiện hữu và bổ sung control-db có volume riêng. Mọi backend đọc trạng thái bền vững theo request, giữ gate trong cùng transaction nghiệp vụ và chỉ nhận quyền ghi theo node/epoch/binding. Điều phối dùng khóa session cùng journal; source DB được fence/đọc lại trước activation target. Gateway reload trong maintenance, xác minh generation rồi mới publish writer.
+
+Snapshot được kiểm tra manifest, encoding, checksum, exit code và schema/toàn bộ row/receipt. Target restore vào DB mới, web được recreate theo binding mới và readiness xác nhận database thực trên pool phục vụ. Rollback trước publish có điều kiện; sau publish, nguồn writer mới giữ thẩm quyền và quay lại node trước cần luồng chuyển dữ liệu mới.
+
+### File dự kiến ở C2 và phân công
+
+Danh sách đầy đủ, nội dung từng file và người phối hợp ở mục 13 của `PHASE_C_DESIGN.md`. Phạm vi dự kiến được tổng hợp theo trách nhiệm chính dưới đây.
+
+| Chủ trì | File mới dự kiến | File hiện có dự kiến cập nhật | Phối hợp |
+| --- | --- | --- | --- |
+| Nam | `database/control-schema.sql`, `database/runtime-schema.sql`, `database/compare-snapshot.cjs` | `database/backup.ps1`, `database/restore.ps1`, `database/verify.cjs` | Ly cho transaction/receipt, Toàn cho DB binding/recreate |
+| Ly | `backend/src/config/controlDb.js`, `backend/src/middleware/trafficGuard.js`, `backend/src/middleware/writeGuard.js`, `backend/src/services/writeTransaction.js`, `backend/src/controllers/readinessController.js` | `backend/server.js`, `backend/src/config/db.js`, routes products/orders, controllers products/orders | Nam cho gate/schema, Toàn cho gateway/triển khai |
+| Ly | `backend/test/writeGuard.test.js`, `backend/test/writeTransaction.test.js`, `backend/test/readiness.test.js`, `scripts/test-phase-c.ps1`, `tests/phase-c.test.cjs`, `tests/compose.phase-c.test.yml` | Test hồi quy liên quan khi tích hợp transaction wrapper | Toàn/Nam cho fixture và đối chiếu DB |
+| Toàn | `compose.c2.test.yml`, `gateway/Dockerfile`, `gateway/nginx.conf.template`, ba template `gateway/upstreams/primary.conf.template`, `standby.conf.template`, `maintenance.conf.template` | `.gitignore`, `.dockerignore` | Nam cho volume/control/schema, Ly cho readiness |
+| Toàn | `gateway/bootstrap.cjs`, `gateway/render-config.cjs`, `scripts/switch-active.ps1`, `scripts/switch-active.cjs`, `scripts/reconcile-active.ps1` | `frontend/js/cart.js`, `frontend/js/admin.js` cho request key và pending outcome | Nam cho source fence/snapshot, Ly cho API/control |
+| Nam cùng Ly/Toàn | Tài liệu vận hành theo kết quả C2 khi được duyệt phạm vi | Hai tài liệu thiết kế C1, status và `database/README.md` | Cả nhóm |
+
+Các script legacy sync/failback tiếp tục nằm trong backlog C–F đã nêu. Test C2 cần runner role-aware vì smoke PHA B hiện thực hiện mutation trên cả hai node độc lập.
+
+### Các quyết định cần người dùng review
+
+| ID | Đề xuất cần duyệt | Điểm đánh đổi/rủi ro còn lại |
+| --- | --- | --- |
+| D1 | Thêm control-db và volume riêng | Service phụ thuộc chung, cùng miền lỗi host |
+| D2 | Thêm hai bảng runtime trong DB C2 mới, wrapper transaction cho mọi mutation | Tăng thay đổi backend/schema, cần xác minh đa process và tất cả route |
+| D3 | Credential node/epoch và mặc định DB read-only qua restart | Restart có thể cần reconcile/rearm trước nhận ghi |
+| D4 | Chỉ mở target khi có fence SQL nguồn được xác minh | Source DB/host mất truy cập gây downtime; hard-fence hạ tầng chưa được thiết kế ở C2 tối thiểu |
+| D5 | Chọn A làm nguồn bootstrap, clone DB C2 mới và giữ hai DB B-phase cũ | Các record TEST riêng của B được bảo quản để review; cần thống nhất nguồn thẩm quyền |
+| D6 | Switch thủ công, một upstream/generation, chặn business API khi state không xác định | Maintenance và phụ thuộc coordinator làm giảm availability |
+| D7 | Idempotency key/receipt, pending outcome, deadline lab 5s/30s/15s | Cần thử commit ACK loss, timeout, khóa và tải thực tế |
+
+Tất cả phương án trên đang ở mức thiết kế. Single-writer qua restart, mất owner, persistent variables và reload có worker cũ cần kiểm chứng C2. Snapshot bất đồng bộ còn khoảng dữ liệu có nguy cơ mất; mô hình một Docker host còn miền lỗi WSL/host/ổ đĩa chung.
+
+### Kiểm tra C1 và trạng thái triển khai
+
+| Hạng mục | Trạng thái |
+| --- | --- |
+| Git baseline, đọc source/config/helper, inventory TEST/demo | PASS cho các thao tác chỉ đọc đã mô tả |
+| HTTP GET health/products/orders và SELECT metadata/counts TEST | PASS, khớp identity/counts PHA B trong phạm vi kiểm tra |
+| Cấu trúc ba tài liệu, JSON mẫu, cạnh state machine, 24 mã test, D1–D7, code fence và phạm vi Git | PASS kiểm tra tĩnh; Mermaid chưa render, chưa kiểm chứng hành vi runtime C2 |
+| Metadata demo cuối C1 | ID và StartedAt của bốn container khớp baseline, không ghi nhận restart trong C1 |
+| Thiết kế C1 | DONE, chờ người dùng review các quyết định D1–D7 |
+| Triển khai C2 | NOT IMPLEMENTED |
+| Kiểm thử C2-01–24 | NOT RUN |
+
+Phạm vi diff cuối C1 gồm một tài liệu tracked cập nhật và hai tài liệu mới chưa tracking. Các thống kê Git ở lần báo cáo kết thúc đi kèm danh sách file này. Điểm dừng là review C1 trước khi được phép triển khai C2.
+
+## 19. PHA C2a — Nền tảng độc lập, chờ review
+
+Người dùng đã duyệt có điều kiện D1–D7 với giới hạn C2a. Đã đọc lại C1, bảo toàn nội dung lịch sử và bổ sung phần điều chỉnh đã duyệt vào hai tài liệu thiết kế/test plan. Công việc thực hiện ngày 18/11/2026 trên `D:\BTL_platform\shoponline-integration`, branch `integration/shoponline-completion`, HEAD `17c46552eb27a744c447bb7f323fb591e7f5058b`.
+
+### Trạng thái ban đầu và môi trường
+
+Git đầu C2a có đúng ba thay đổi tài liệu C1. Docker CLI 29.9.2 ban đầu chưa kết nối được Linux Engine. Sau khi Docker Desktop/Engine hoạt động, bốn container demo đã chạy, bốn container TEST PHA B ở trạng thái Exited. Đã start lại chính các container PHA B bằng Compose start để đọc snapshot A. Inventory trước start được lưu riêng. Container ID, image và cấu hình PHA B được bảo toàn; StartedAt của PHA B thay đổi theo lần start này.
+
+Baseline so tác động C2 được chụp sau khi PHA B healthy. PHA B A vẫn có 26 products/11 orders/12 items, B 22/10/11. Cả hai DB cũ giữ tên `shoponline_check_phase_b`, cùng grants và read_only/super_read_only bằng 0. Các phép so sánh dữ liệu, grants, metadata PHA B/demo trước bootstrap và sau test đều khớp.
+
+| Thành phần | Cấu hình C2a đã chạy |
+| --- | --- |
+| Project / Compose | `shoponline-c2a-20261118` / `compose.c2.test.yml` |
+| Service | control-db, primary-db, standby-db, primary-web, standby-web, gateway |
+| Gateway / web A / web B | Loopback 18080 / 18100 / 18101 |
+| Network | `shoponline-c2a-20261118_default`, bridge riêng |
+| Volumes | `shoponline-c2a-20261118_control_data`, `_primary_data`, `_standby_data` |
+| Control DB | `shoponline_control_c2a`, ba bảng state/journal/verification |
+| Data DB A / B | `shoponline_check_c2a_a_20261118`, `shoponline_check_c2a_b_20261118` |
+| Runtime tables | runtime_write_gate và runtime_write_receipts ở mỗi data DB mới |
+| Quyền web / control reader | SELECT trên DB C2 tương ứng, password ngẫu nhiên riêng |
+| State / writer / epoch | MAINTENANCE / NULL / 0, generation gateway 0 |
+| Data DB protection | Gate đóng, read_only=1, super_read_only=1, flags được persist và đã đọc lại sau recreate |
+| Phiên bản thực tế | Docker 29.9.2, MySQL 8.0.46, Nginx 1.30.6, container Node.js 20.20.2 |
+
+Gateway phục vụ JSON maintenance 503. Direct `/health` trả tên DB thực/UUID/gate qua pool đang dùng; `/cluster/status` đọc coordinator mỗi lần. Middleware đặt trước parser/route, từ chối mutation khi thiếu authority hoặc chưa có activation/transaction admission. Header client không cấp quyền ghi. `/ready` trả 503 WRITE_ACTIVATION_REQUIRED trong C2a.
+
+### File thực tế đã thêm/sửa và phân công
+
+| File | Thay đổi C2a | Chủ trì / phối hợp |
+| --- | --- | --- |
+| `database/control-schema.sql` mới | Cluster state, CHECK writer/state, transition journal, snapshot verification | Nam / Ly, Toàn |
+| `database/runtime-schema.sql` mới | Gate/receipt, định danh DB/node/epoch và ràng buộc | Nam / Ly |
+| `database/c2a-snapshot.cjs` mới | Raw dump validation, read-only consistent snapshot, schema metadata và full-row digest, kiểm orphan/totals | Nam / Ly |
+| `backend/src/config/controlDb.js` mới | Pool coordinator SELECT-only, query/connection timeout hữu hạn | Ly / Nam |
+| `backend/src/services/clusterState.js` mới | Đọc/validate state, token dạng chuỗi, actual data connection identity/gate | Ly / Nam |
+| `backend/src/middleware/writeGuard.js` mới | Guard global fail-closed, JSON 503, state/header handling | Ly / Nam |
+| `backend/src/clusterFoundation.js` mới | Nhận diện cấu hình C2, gắn guard và live/health/status/ready contract | Ly / Toàn |
+| `backend/server.js` | Gắn foundation trước middleware/route hiện có | Ly |
+| `backend/test/clusterFoundation.test.js` mới | Test config/state lỗi, direct/future mutation, header giả và Express entry point | Ly |
+| `backend/test/c2aSnapshot.test.js` mới | Dump/scope/fingerprint/consistent snapshot và schema metadata regression | Nam / Ly |
+| `compose.c2.test.yml` mới | Sáu service, network/volume/account/port C2 riêng | Toàn / Nam, Ly |
+| `gateway/maintenance.conf` mới | Gateway mặc định maintenance, liveness, JSON 503/generation 0 | Toàn / Ly |
+| `scripts/c2a-lib.cjs` mới | Resolve/guard resource, SQL helper C2, Compose, đọc fingerprint PHA B/demo và grants | Toàn / Nam |
+| `scripts/bootstrap-c2a.cjs` mới | Prepare env, snapshot A, restore DB mới, seal/verify/binding, journal và resume có kiểm tra | Toàn / Nam, Ly |
+| `scripts/test-c2a.cjs` mới | 10 nhóm smoke, fault riêng control-db, kiểm dữ liệu/quyền và unit container | Ly / Toàn, Nam |
+| `.gitignore`, `.dockerignore` | Loại `.runtime/` khỏi Git và build context | Toàn |
+| `docs/PHASE_C_DESIGN.md` | Thêm mục 15 phản ánh phê duyệt/project C2a và hành vi đã chạy | Nam / Ly, Toàn |
+| `docs/PHASE_C_TEST_PLAN.md` | Thêm mục 8, mã C2A, kết quả thực và giới hạn | Ly / Nam, Toàn |
+| `docs/IMPLEMENTATION_STATUS.md` | Cập nhật hiện tại, giữ lịch sử 1–18 và bổ sung bàn giao C2a | Nam / Ly, Toàn |
+
+Snapshot SQL, secret và log/report runtime được giữ trong `.runtime/c2a/` và được ignore. Các script legacy sync/failback, helper backup/restore cũ, schema/seed PHA B và Compose demo/PHA B tiếp tục nằm ngoài diff C2a.
+
+### Dữ liệu và lỗi đã xử lý
+
+Nguồn là A PHA B, UUID `5197033f-e297-11f1-908f-321b3f12d865`. Dump 12.405 byte UTF-8, checksum `3355e9e8c8cd3368aa6b3208db3346263b0f65f3dfd86953a996a4c4500c3050`, manifest `c2a-e39a9923-4904-4b01-a4b7-c32548e87b3f`. Hai DB C2 có cùng 26/11/12 row nghiệp vụ và đã khớp mọi row/schema của snapshot. Receipt rỗng, gate đóng.
+
+Các lỗi gặp và đã xử lý gồm published ports không hoạt động với network internal, so raw SHOW CREATE báo lệch do phần CHARACTER SET được in khác nhau, MySQL trả read-only flags dạng chuỗi khi bật bigNumberStrings, unit PHA B kế thừa env C2 và lỗi fetch trong một lượt fault probe. Đã đổi sang bridge riêng, fingerprint metadata schema, chuẩn hóa flags, chạy regression bằng env legacy và dùng kết nối HTTP mới mỗi probe. Lượt cuối PASS toàn bộ.
+
+Lượt bootstrap đầu đã restore/seal hai DB rồi dừng ở verify schema. Đã dùng `--resume` để xác minh và hoàn tất journal. Việc sửa network chỉ tạo lại container/network C2, giữ nguyên named volumes và DB đã restore. Không chạy import đè để xử lý lỗi.
+
+### Kiểm thử thực tế
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Unit Windows Node.js 22.13.0 | PASS 90/90, gồm 47 test PHA B và 43 test mới |
+| Unit container Node.js 20.20.2 | PASS 90/90 |
+| Compose config / source syntax | PASS, cấu hình sáu service và port/network/volume riêng |
+| C2A-01–03 | PASS, isolation, control/journal/CHECK, runtime schema và snapshot |
+| C2A-04–06 | PASS, gateway maintenance, mọi route ghi/direct/header giả bị chặn, account SELECT-only |
+| C2A-07 | PASS, control-db C2 bị stop trả 503 ở cả hai web, start lại giữ MAINTENANCE/writer NULL |
+| C2A-08–09 | PASS, zero mutation/receipt C2 và mọi fingerprint/grants/metadata PHA B/demo khớp baseline |
+| C2A-10 | PASS, regression unit trong container |
+| Activation writer, A → B, drain, commit UNKNOWN/receipt retry, gateway reload động, failback | NOT RUN, ngoài C2a |
+| Timeout 5/30/15 và RPO/RTO | Chưa nghiệm thu, giữ là giá trị/giới hạn thiết kế |
+
+Lượt đầu C2A-10 FAIL do env, lượt kế C2A-07 lỗi fetch, đã lưu báo cáo gốc. Báo cáo cuối `.runtime/c2a/test-results.json` có 10 PASS và zero FAIL. Unit log nằm ở `unit-results.log` và `unit-container.log`.
+
+### Vấn đề còn tồn tại và điều kiện trước C2b
+
+C2a mới có trạng thái zero writer. Admission/transaction wrapper dùng gate tới commit, receipt/idempotency, khóa switch theo session/epoch, fencing qua activation và dynamic gateway chưa được triển khai. Snapshot online và miền lỗi chung Docker/WSL/host vẫn có giới hạn đã ghi ở C1. Các bảo đảm chuyển role đầy đủ cần kiểm thử theo C2-01–24 khi được duyệt phạm vi tương ứng.
+
+Điều kiện đầu vào C2b gồm người dùng review C2a và chốt phạm vi kế tiếp, kiểm tra baseline Git/Docker mới, giữ các artifact/DB C2a để đối chiếu và xác nhận bộ kiểm thử nền tảng vẫn PASS. Trước bất kỳ activation nào, cần hoàn tất cơ chế admission/transaction/fencing theo thiết kế và kiểm thử tương ứng. Việc mở quyền DML phải đi cùng giao thức đó.
+
+Điểm dừng hiện tại là C2a đã hoàn thành và chờ người dùng review. HEAD vẫn `17c4655`; các thay đổi được giữ trong working tree để kiểm tra. C2b/C2c và D/E/F chưa thực hiện. Commit, push và merge chưa thực hiện.
+
+## 20. Hoàn thiện liên tục và nghiệm thu KT1–KT3 ngày 18/11/2026
+
+Người dùng cho phép tiếp tục các chặng sau C2a khi cổng kiểm thử PASS, thu thập minh chứng thật ngay trong quá trình chạy. Đã đọc ba tài liệu, kiểm tra branch/HEAD/diff/untracked và sáu service C2 healthy ở MAINTENANCE. Baseline dữ liệu, quyền và tài nguyên lưu lúc 17:18:52 +07 trong `.runtime/evidence-20261118/baseline.json`. Mọi mutation, stop/restart, đổi quyền và restore của lượt này thực hiện trong project `shoponline-c2a-20261118` đã kiểm tra label/container/volume.
+
+### Kết quả theo kịch bản
+
+| Kịch bản | Trạng thái | Order ID thật | Database phục vụ ở kịch bản |
+| --- | --- | --- | --- |
+| KT1 — A qua Gateway | PASS | `59a46870-971a-405c-933f-d95b66dcbee5` | `shoponline_check_c2a_a_r_1794998788002_8f4457` |
+| KT2 — primary-web lỗi, chuyển B | PASS | `acaf0cff-01cb-4894-b7ac-cc4f16a34129` | `shoponline_check_c2a_b_r_1794999909587_9e1bb6` |
+| KT3 — failback về A | PASS | `567799c9-dc0a-4fb4-b821-90f737fa458f` | `shoponline_check_c2a_a_r_1795000150418_7652da` |
+| Đơn B được admission trước drain | PASS, giữ trên A | `a569f29e-7aac-43a5-91d3-1c346e83a3b1` | B nguồn và A mới có cùng order/items/receipt |
+
+KT1 đã chạy Chrome qua `127.0.0.1:18080`, hiển thị catalog, mở chi tiết, thêm quantity 2 vào giỏ, chọn sản phẩm, điền thông tin TEST và đặt đơn. SQL A xác nhận một item giá 125.000, quantity 2, total 250.000 và stock từ 10 còn 8. B từ chối mutation qua direct port và không có thay đổi row nghiệp vụ. Minh chứng ảnh, response và SQL nằm trong thư mục KT1 của evidence index.
+
+KT2 đã tạo snapshot online A, dừng riêng primary-web C2 và quan sát gateway maintenance. DB A vẫn truy cập quản trị được. Điều phối commit MAINTENANCE, drain gate, khóa account cũ, kết thúc session và xác nhận gate 0, read_only/super_read_only 1, zero writer session/transaction. Sau đó lấy snapshot frozen, restore vào DB B mới, so schema/mọi row/receipt, rebind web B và kiểm actual pool/DB/UUID. Gateway được probe đúng target/generation trước publish B epoch 4. Đơn B qua UI có total 250.000, stock 8. A cũ được start với stale writer account và trả 503, sau đó rebind SELECT-only để health hoạt động. Gateway restart khi B active vẫn chọn B theo Control DB.
+
+KT3 đã giữ row lock sản phẩm trên B, gửi một order để transaction giữ shared gate và chờ product lock. Trong MAINTENANCE, request mới bị 503 và thao tác đóng gate đợi exclusive lock. `performance_schema.data_locks` xác nhận product wait và shared gate thuộc cùng transaction. Sau release, order được ACK, gate mới đóng, B fenced và snapshot frozen chứa cả đơn B ban đầu lẫn đơn drain. Restore vào DB A mới, đối chiếu toàn bộ dữ liệu rồi publish A epoch 5. Hai đơn B được đọc lại qua Gateway A và SQL A, so chính xác ID/customer/items/quantity/giá lúc mua/total/receipt/stock với B đã fenced. Sản phẩm KT2 có stock 7 sau quantity 2 và một đơn drain quantity 1. Đơn mới trên A dùng sản phẩm riêng, stock 10 → 8. B hiện trả NODE_INACTIVE 503.
+
+Đã replay đúng key/body của đơn B trên A sau failback. Server trả cùng Order ID, header `Idempotency-Replayed: true`; full data/schema digest trước sau giữ nguyên. Bằng chứng ở `KT3-cross-node-idempotency.json`.
+
+### Đo thực tế và phạm vi RPO/RTO
+
+| Chỉ số | Giá trị và cách đo |
+| --- | --- |
+| KT2 RTO quan sát | 28,005 giây, từ primary-web C2 đã dừng lúc 18:04:59.016 đến Gateway active-ready B lúc 18:05:27.021 +07 |
+| KT2 freeze / fence A | MAINTENANCE 18:05:03.257, source fence xác minh 18:05:05.944 +07 |
+| KT3 khoảng maintenance quan sát | 29,306 giây, freeze B 18:08:59.090 đến Gateway active-ready A 18:09:28.396 +07 |
+| Drain quan sát | Release row lock 18:09:01.167, ACK đơn drain 18:09:01.213, B fence xác minh 18:09:06.731 +07 |
+| Dữ liệu khôi phục | Full-row/schema/receipt digest nguồn frozen và đích khớp; các đơn đã xác nhận trong kịch bản được giữ |
+
+Các phép đo thuộc kịch bản primary-web lỗi, DB nguồn vẫn quản trị được, chuyển có kiểm soát và snapshot sau drain/fence. Snapshot bất đồng bộ còn khoảng mất dữ liệu trong các tình huống nguồn DB mất trước khi có snapshot mới. Mô hình cùng Docker host còn điểm lỗi chung WSL/host/ổ đĩa/control plane. RTO/RPO trên toàn bộ các miền lỗi đó chưa được nghiệm thu. Các timeout 5/30/15 giây là giá trị cấu hình thử ban đầu.
+
+### Kiểm thử và vận hành cuối
+
+| Cổng / kiểm tra | Kết quả thực tế |
+| --- | --- |
+| Chặng 1 | PASS, A CRUD/order, error rollback, replay/delete/concurrent key, 409 khác payload, B/direct/header spoof bị chặn, second coordinator BUSY, Control DB outage fail-closed |
+| PHA B và test C2 | PASS 103/103 Windows Node.js 22.13.0 và 103/103 container Node.js 20.20.2 |
+| Chặng 2 / KT1 | PASS, browser/SQL A và zero mutation B |
+| Chặng 3 / KT2 | PASS, native backup/restore DB mới, fence SQL, readiness/rebind, B order, stale A bị chặn |
+| Chặng 4 / KT3 | PASS, drain SQL thật, giữ hai order B đầy đủ, A order mới, B inactive |
+| Gateway | PASS restart B và A canonical, generation cũ bị 503; native `nginx -t` từ chối config lỗi, con trỏ config đang phục vụ giữ nguyên |
+| Chặng 5 | PASS backup active writer chạy lại, restore-check vào DB B mới, serving binding giữ nguyên |
+| Bảo toàn PHA B/demo | PASS so baseline/final tám container và bốn DB về ID/StartedAt/mount/port/config, grants/flags/full-row fingerprints |
+| Scheduler | TODO cài lịch. Runbook có Task Scheduler 15 phút chạy `cluster-ops.cjs backup` từ writer canonical |
+| Các failure window nâng cao | Có phân loại PARTIAL/NOT RUN ở mục 9 test plan, không suy luận PASS từ thiết kế |
+
+Bản restore-check cuối là `shoponline_check_c2a_b_r_1795000320699_e495df`, đủ 30 products, 17 orders, 18 order_items và 14 receipts, khớp A đang phục vụ. Snapshot kiểm tra 24.555 byte UTF-8, native exit 0 và checksum hợp lệ. B website tiếp tục dùng DB B đã fenced; bản restore-check là DB bổ sung để kiểm chứng chạy lại.
+
+### Cấu hình và file triển khai
+
+Gateway/Nginx 1.28.3 chạy cùng Node bootstrap, dùng named volume `gateway_config`. Control DB có cổng loopback 18106 cho CLI host. Backend/gateway đọc Control DB, quyền ghi được kiểm bằng node/epoch/username/actual DB/UUID/gate. Transaction wrapper giữ row gate và receipt tới commit; response chỉ được phát sau ACK commit. Các controller CRUD PHA B được tái sử dụng qua AsyncLocalStorage và connection facade, inner commit/release được quản lý bởi wrapper. Frontend lưu idempotency key/body cho kết quả chưa rõ.
+
+| File/chức năng thêm hoặc mở rộng sau C2a | Chủ trì / phối hợp |
+| --- | --- |
+| `backend/src/services/requestTransaction.js`, `writeTransaction.js`, `backend/src/config/db.js` | Ly / Nam, connection context, transaction admission/receipt/commit |
+| `backend/src/clusterFoundation.js`, `services/clusterState.js`, `middleware/writeGuard.js`, `backend/server.js` | Ly / Nam, actual readiness, read/write guard, status/outcome |
+| `backend/test/writeTransaction.test.js` | Ly / Nam, regression/commit UNKNOWN và gate/response lifecycle |
+| `frontend/js/api-client.js`, cart/admin JS, cart/admin HTML, `frontend/test/api-client.test.cjs` | Ly / Toàn, key/body retry, giữ API PHA B khi helper chưa nạp |
+| `database/c2a-snapshot.cjs`, `database/inspect-c2.cjs` | Nam / Ly, schema metadata và full-row/receipt digest |
+| `scripts/cluster-ops.cjs` | Toàn / Nam, named lock/journal, fence, backup/restore mới, credential/rebind và rollback zero writer |
+| `gateway/Dockerfile`, `bootstrap.cjs`, `render-config.cjs`, `compose.c2.test.yml` | Toàn / Ly, gateway dynamic/candidate/promotion, safe config và generation |
+| `scripts/acceptance.cjs`, `scripts/kt-browser.cjs` | Ly / Toàn, cổng test, Chrome/SQL/evidence và order checkpoint |
+| README, database README, `docs/RUNBOOK_KT1_KT3.md` | Nam / Toàn, vận hành TEST và hướng dẫn backup lịch |
+| Ba tài liệu lịch sử và `docs/EVIDENCE_INDEX.md` | Nam / Ly, Toàn, kết quả/giới hạn và chuyển minh chứng lên Notion |
+
+Các helper C2a, schema bootstrap và snapshot gốc được giữ. Schema/seed, Compose PHA B/demo và script sync/failback legacy tiếp tục giữ nguyên trong diff. CLI dependency theo lockfile nằm trong `.runtime/c2-cli-deps/`, được ignore.
+
+### Lỗi gặp, xử lý và phần còn lại
+
+Lượt kích hoạt đầu gặp UPDATE metadata trên source đã super-read-only. Đã rollback có kiểm chứng về zero writer, giữ canonical A, rồi xác nhận fence hiện có khi gate đã đóng; epoch tăng từ 1 qua rollback 2 tới activation A 3. KT2 dùng epoch 4, KT3 epoch 5. Nginx `nginx -t` gặp lỗi mở /dev/stderr trong subprocess, đã đổi error_log sang stderr và access log vào volume. Browser mất response body khi trang điều hướng đã được xử lý bằng lưu key/Order ID từ request/response/dialog và dùng lại ID khi chụp ảnh. Lệnh npm ci đã tác động dependency đang tracking; chỉ các dependency phát sinh từ lệnh đó được phục hồi theo HEAD, bộ CLI chuyển vào runtime. Diff dependency/lockfile cuối rỗng.
+
+Ảnh public được giới hạn vào đơn/customer TEST và các trang status. Raw SQL backup, secret/env và ảnh debug toàn trang giữ riêng. Danh sách minh chứng đã chọn, thời điểm và ghi chú Notion nằm trong `docs/EVIDENCE_INDEX.md`.
+
+Scheduler chưa cài tự chạy, replication liên tục và HA đa host chưa triển khai. Fault giữa COMMIT ở tầng mạng, owner chết giữa lệnh admin/publish, active DB restart/rearm và các nhánh lỗi nâng cao chưa có kiểm chứng đầy đủ. Kết quả nghiệm thu hiện tại là ba kịch bản KT1–KT3 nêu trên cùng vận hành tối thiểu. Đã dừng để người dùng review; Git HEAD/branch giữ nguyên, thay đổi ở working tree, chưa commit/push/merge.

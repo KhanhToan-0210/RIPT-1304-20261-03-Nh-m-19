@@ -1,5 +1,7 @@
 # Database và môi trường TEST — PHA B
 
+**Cập nhật 18/11/2026 — KT1–KT3 đã PASS trên project C2 riêng.** Backup/restore hiện hành dùng `node scripts/cluster-ops.cjs backup` và `restore-check`, đọc writer canonical và luôn tạo DB đích mới. Xem [runbook KT1–KT3](../docs/RUNBOOK_KT1_KT3.md) và [minh chứng SQL/manifest](../docs/EVIDENCE_INDEX.md). Các mục PHA B phía dưới được giữ để đối chiếu baseline.
+
 Các lệnh dưới đây chạy từ worktree `D:\BTL_platform\shoponline-integration`, nhánh `integration/shoponline-completion`. Kết quả thực chạy được cập nhật trong `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Cấu hình TEST

@@ -1,5 +1,9 @@
 # Dự Án Web Bán Hàng HP (Phân Tách Frontend & Backend API)
 
+**Nghiệm thu TEST KT1–KT3 ngày 18/11/2026 đã PASS.** Gateway `http://127.0.0.1:18080` phục vụ A sau failback, giữ đầy đủ đơn được tạo trên B. Dùng project `shoponline-c2a-20261118` và `compose.c2.test.yml` theo [runbook KT1–KT3](docs/RUNBOOK_KT1_KT3.md). Ảnh/log thực tế được chọn trong [chỉ mục minh chứng](docs/EVIDENCE_INDEX.md); kết quả và giới hạn ở [báo cáo triển khai](docs/IMPLEMENTATION_STATUS.md).
+
+Phần hướng dẫn Compose mặc định phía dưới mô tả cấu hình ban đầu. Các thao tác nghiệm thu hiện tại dùng lệnh có đủ file/env/project TEST trong runbook.
+
 Dự án này đã được tổ chức phân chia rõ ràng thành 2 phần độc lập: **Giao diện Web (`frontend`)** và **Mã nguồn API (`backend`)**, kèm theo hỗ trợ **Docker & Docker Compose**.
 
 ---
